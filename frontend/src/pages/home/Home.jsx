@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import profileIcon from "../../assets/profile.png";
 import { FaArrowRightLong } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import Header from "../../components/header/Header";
+import { IoMdClose } from "react-icons/io";
+import { ChevronRight } from "lucide-react";
 
 export default function Home() {
-
   const [dashboardStats] = useState([
     {
       title: "TOTAL USER",
@@ -73,6 +74,34 @@ export default function Home() {
     },
     // add more as needed
   ]);
+  const [showExploreAllPopup, setShowExploreAllPopup] = useState(false);
+  const [showIdPopup, setShowIdPopup] = useState(false);
+  const [productId, setProductId] = useState("");
+
+  const exploreRef = useRef(null);
+  const checkIdRef = useRef(null);
+
+  // ✅ close popup on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showExploreAllPopup &&
+        exploreRef.current &&
+        !exploreRef.current.contains(event.target)
+      ) {
+        setShowExploreAllPopup(false);
+      }
+      if (
+        showIdPopup &&
+        checkIdRef.current &&
+        !checkIdRef.current.contains(event.target)
+      ) {
+        setShowIdPopup(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showExploreAllPopup, showIdPopup]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#C3E8FF] to-white px-10 pt-7 pb-12 space-y-8">
@@ -85,10 +114,16 @@ export default function Home() {
           Welcome back, Admin!
         </h1>
         <div className="flex gap-8">
-          <button className="border-2 border-[#333333] text-[#333333] font-semibold px-6 py-2 rounded-xl hover:bg-[#333333] hover:text-white transition text-sm">
+          <button
+            onClick={() => setShowIdPopup(true)}
+            className="border-2 border-[#333333] text-[#333333] font-semibold px-6 py-2 rounded-xl hover:bg-[#333333] hover:text-white transition text-sm"
+          >
             Check ID
           </button>
-          <button className="bg-[#333333] text-white px-6 py-2 rounded-xl font-semibold hover:bg-black transition text-sm">
+          <button
+            onClick={() => setShowExploreAllPopup(true)}
+            className="bg-[#333333] text-white px-6 py-2 rounded-xl font-semibold hover:bg-black transition text-sm"
+          >
             Explore All{" "}
             <FaArrowRightLong className="inline ml-2" strokeWidth={50} />
           </button>
@@ -164,6 +199,88 @@ export default function Home() {
           </table>
         </div>
       </div>
+
+      {/* explore all popop */}
+      {showExploreAllPopup && (
+        <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50">
+          <div
+            ref={exploreRef}
+            className="bg-white rounded-3xl p-6 w-[320px] relative space-y-5 shadow-lg"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-black">Explore All</h2>
+              <button
+                onClick={() => setShowExploreAllPopup(false)}
+                className="text-black p-1 bg-gray-100 hover:bg-gray-200 rounded-full"
+              >
+                <IoMdClose size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {["Category", "Promotion", "Offers"].map((label, idx) => (
+                <button
+                  key={idx}
+                  className="w-full flex items-center justify-between border border-[#333333] rounded-2xl px-4 py-3 text-[#333333] text-sm font-medium hover:bg-gray-100 transition"
+                >
+                  {label}
+                  <ChevronRight size={20} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Check ID Popup */}
+      {showIdPopup && (
+        <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50">
+          <div
+            ref={checkIdRef}
+            className="bg-white rounded-2xl p-6 w-[340px] relative space-y-5 shadow-lg"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-black">Check the QR/ID</h2>
+              <button
+                onClick={() => setShowIdPopup(false)}
+                className="text-black p-1 hover:bg-gray-200 rounded-full"
+              >
+                <IoMdClose size={20} />
+              </button>
+            </div>
+
+            {/* Input field */}
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-black">
+                Product Id
+              </label>
+              <input
+                type="text"
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+                placeholder="Enter your ID"
+                className="w-full border-none outline-none bg-[#F1F4FF] rounded-lg px-4 py-2 text-sm text-black"
+              />
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setProductId("")}
+                className="flex-1 border border-black rounded-lg py-2 text-sm font-semibold hover:bg-gray-100"
+              >
+                Clean
+              </button>
+              <button
+                onClick={() => alert(`Checking ID: ${productId}`)}
+                className="flex-1 bg-black text-white rounded-lg py-2 text-sm font-semibold hover:bg-gray-900"
+              >
+                Check
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
