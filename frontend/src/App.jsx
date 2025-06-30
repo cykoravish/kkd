@@ -1,7 +1,8 @@
 import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "./routes/AppRoutes";
 import { useState } from "react";
-import Loader from "./components/Loader";
+import Loader from "./components/loadingAnimation/Loader";
+import { AuthProvider } from "./context/AuthProvider";
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -12,7 +13,9 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

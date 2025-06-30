@@ -1,21 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import { Loader } from "lucide-react";
+import toast from "react-hot-toast";
 
-function Home() {
+function Login() {
   const [userData, setUserData] = useState({
     emailOrPhone: "",
     password: "",
   });
+  const navigate = useNavigate();
+  const { isAuthenticated, adminLogin, loading } = useAuth();
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/");
+    }
+  }, [isAuthenticated, navigate]);
 
-  const submitHandler = (e) => {
+  const submitHandler = async (e) => {
     e.preventDefault();
-    console.log(userData);
+    try {
+      await adminLogin(userData);
+      toast.success("Login successful!", { id: "login-toast" });
+    } catch (error) {
+      toast.error(error.message, { id: "login-toast" });
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#C3E8FF] to-[#FFFFFF] flex flex-col">
       {/* Logo */}
-      <div className="px-4 py-4">
-        <img src="/logo.png" alt="kkd" className="w-20 sm:w-24 md:w-28" />
+      <div className="px-4">
+        <img src="/logo.png" alt="kkd" className="w-16 sm:w-20" />
       </div>
 
       {/* Form section */}
@@ -61,9 +77,14 @@ function Home() {
 
             <button
               type="submit"
-              className="w-full bg-[#333333] text-white py-3 rounded hover:bg-[#151515] transition"
+              disabled={loading}
+              className={`w-full flex items-center justify-center gap-2 ${
+                loading
+                  ? "bg-gray-500 cursor-not-allowed"
+                  : "bg-[#333333] hover:bg-[#151515]"
+              } text-white py-3 rounded transition`}
             >
-              Log In
+              {loading ? <Loader className="animate-spin w-5 h-5" /> : "Log In"}
             </button>
           </form>
         </div>
@@ -72,4 +93,4 @@ function Home() {
   );
 }
 
-export default Home;
+export default Login;
