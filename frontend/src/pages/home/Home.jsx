@@ -218,14 +218,19 @@ export default function Home() {
             </div>
 
             <div className="space-y-3">
-              {["Category", "Promotion", "Offers"].map((label, idx) => (
-                <button
+              {[
+                { text: "Category", link: "/category" },
+                { text: "Promotion", link: "/promotion" },
+                { text: "Offers", link: "/offers" },
+              ].map((label, idx) => (
+                <Link
+                  to={label.link}
                   key={idx}
                   className="w-full flex items-center justify-between border border-[#333333] rounded-2xl px-4 py-3 text-[#333333] text-sm font-medium hover:bg-gray-100 transition"
                 >
-                  {label}
+                  {label.text}
                   <ChevronRight size={20} />
-                </button>
+                </Link>
               ))}
             </div>
           </div>
