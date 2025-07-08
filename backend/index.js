@@ -7,7 +7,7 @@ import { dbConnect } from "./helpers/database/dbConenct.js";
 
 dotenv.config();
 const app = express();
-// app.use(cors());
+
 app.use(
   cors({
     origin: "*",

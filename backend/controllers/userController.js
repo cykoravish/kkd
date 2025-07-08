@@ -49,12 +49,14 @@ export const userSignup = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "User registered successfully",
-      user: {
-        userId: user.userId,
-        fullName: user.fullName,
-        phone: user.phone,
-        email: user.email,
-        coinsEarned: user.coinsEarned,
+      data: {
+        user: {
+          userId: user.userId,
+          fullName: user.fullName,
+          phone: user.phone,
+          email: user.email,
+          coinsEarned: user.coinsEarned,
+        },
       },
     });
   } catch (error) {
@@ -101,13 +103,15 @@ export const userLogin = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Login successful",
-      token,
-      user: {
-        userId: user.userId,
-        fullName: user.fullName,
-        phone: user.phone,
-        email: user.email,
-        coinsEarned: user.coinsEarned,
+      data: {
+        token,
+        user: {
+          userId: user.userId,
+          fullName: user.fullName,
+          phone: user.phone,
+          email: user.email,
+          coinsEarned: user.coinsEarned,
+        },
       },
     });
   } catch (error) {
@@ -116,7 +120,7 @@ export const userLogin = async (req, res) => {
   }
 };
 
-export const getUserProfile = async (req, res) => {
+export const getUser = async (req, res) => {
   try {
     const user = await User.findOne({ userId: req.user.userId }).select(
       "-password -__v"

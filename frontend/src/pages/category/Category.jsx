@@ -3,9 +3,12 @@ import Header from "../../components/header/Header";
 import { IoIosArrowRoundBack } from "react-icons/io";
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import axios from "axios";
 
 export default function Category() {
   const [isCategoryPopup, setIsCategoryPopup] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [imageFile, setImageFile] = useState(null);
   const [image, setImage] = useState(null);
   const categoryRef = useRef(null);
 
@@ -35,6 +38,7 @@ export default function Category() {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      setImageFile(file);
       setImage(URL.createObjectURL(file));
     }
   };
@@ -52,6 +56,37 @@ export default function Category() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isCategoryPopup]);
+
+  const handleSaveCategory = async () => {
+    if (!categoryName || !imageFile) {
+      alert("Please provide category name and image!");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("categoryName", categoryName);
+    formData.append("categoryImage", imageFile); // 'image' should match your multer.single("image")
+
+    try {
+      const res = await axios.post(
+        `${import.meta.env.VITE_BACKEND_API}/api/admin/add-category`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      console.log(res.data);
+      alert("Category added successfully!");
+      setIsCategoryPopup(false);
+      setCategoryName("");
+      setImageFile(null);
+      setImage(null);
+      // Optional: trigger category list refresh here
+    } catch (err) {
+      console.error(err);
+      alert("Error adding category!");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#C3E8FF] to-white px-10 pt-7 pb-12 space-y-8">
@@ -99,9 +134,7 @@ export default function Category() {
               className="bg-white p-6 rounded-lg shadow-lg w-96 relative"
               ref={categoryRef}
             >
-              <h3 className="text-lg font-semibold mb-4">
-                Create New Category
-              </h3>
+              <h3 className="text-lg font-semibold mb-4">Add New Category</h3>
               <button
                 onClick={toggleCategory}
                 className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
@@ -111,17 +144,19 @@ export default function Category() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Product Id
+                    Category Name
                   </label>
                   <input
                     type="text"
-                    placeholder="Product ID"
+                    value={categoryName}
+                    onChange={(e) => setCategoryName(e.target.value)}
+                    placeholder="Category Name"
                     className="w-full p-2 border rounded-lg bg-gray-100"
                   />
                 </div>
                 <div className="max-w-xs">
                   <div className="block text-sm font-medium mb-1">
-                    Product Image
+                    Category Image
                   </div>
                   <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg h-40 cursor-pointer hover:border-blue-500 transition">
                     {image ? (
@@ -147,7 +182,10 @@ export default function Category() {
                   <button className="px-4 py-2 border rounded-lg hover:bg-gray-100">
                     Clean
                   </button>
-                  <button className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-black">
+                  <button
+                    onClick={handleSaveCategory}
+                    className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-black"
+                  >
                     Save
                   </button>
                 </div>
