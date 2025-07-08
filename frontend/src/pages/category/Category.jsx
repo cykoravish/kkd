@@ -10,30 +10,12 @@ export default function Category() {
   const [categoryName, setCategoryName] = useState("");
   const [imageFile, setImageFile] = useState(null);
   const [image, setImage] = useState(null);
+  const [categories, setCategories] = useState([]);
   const categoryRef = useRef(null);
-
+console.log(categories)
   const toggleCategory = () => {
     setIsCategoryPopup(!isCategoryPopup);
   };
-
-  const categories = [
-    {
-      name: "Interior",
-      img: "https://placehold.co/600x400@2x.png",
-    },
-    {
-      name: "Exterior",
-      img: "https://placehold.co/600x400@2x.png",
-    },
-    {
-      name: "Wood finish",
-      img: "https://placehold.co/600x400@2x.png",
-    },
-    {
-      name: "waterproofing",
-      img: "https://placehold.co/600x400@2x.png",
-    },
-  ];
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -42,6 +24,20 @@ export default function Category() {
       setImage(URL.createObjectURL(file));
     }
   };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_BACKEND_API}/api/admin/categories`
+      );
+      setCategories(res.data.data);
+    } catch (error) {
+      console.error("Failed to fetch categories", error);
+    }
+  };
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -111,8 +107,8 @@ export default function Category() {
           {categories.map((category, index) => (
             <div key={index} className="w-[180px]">
               <img
-                src={category.img}
-                alt={category.name}
+                src={category.categoryImage}
+                alt={category.categoryName}
                 className="w-full aspect-square object-cover rounded"
               />
               <p className="mt-1 text-sm font-medium text-black text-center">
@@ -179,7 +175,14 @@ export default function Category() {
                   </label>
                 </div>
                 <div className="flex justify-between mt-4">
-                  <button className="px-4 py-2 border rounded-lg hover:bg-gray-100">
+                  <button
+                    onClick={() => {
+                      setCategoryName("");
+                      setImage(null);
+                      setImageFile(null);
+                    }}
+                    className="px-4 py-2 border rounded-lg hover:bg-gray-100"
+                  >
                     Clean
                   </button>
                   <button

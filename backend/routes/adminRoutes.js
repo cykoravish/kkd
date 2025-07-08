@@ -1,6 +1,7 @@
 import express from "express";
 import {
   addCategory,
+  deleteCategory,
   getAllCategories,
   login,
   verifyToken,
@@ -16,5 +17,7 @@ adminRouter.post("/verify-token", verifyToken);
 adminRouter.post("/add-category", upload.single("categoryImage"), addCategory);
 
 adminRouter.get("/categories", getAllCategories);
+
+adminRouter.delete("/delete-category/:id", deleteCategory);
 
 export default adminRouter;

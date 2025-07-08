@@ -83,3 +83,41 @@ export const getAllCategories = async (req, res) => {
     });
   }
 };
+
+export const deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find the category by ID
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
+
+    // Extract public ID from Cloudinary image URL
+    const imageUrl = category.categoryImage;
+    const segments = imageUrl.split("/");
+    const publicIdWithExtension = segments[segments.length - 1];
+    const publicId = `kkd/categories/${publicIdWithExtension.split(".")[0]}`;
+
+    // Delete image from Cloudinary
+    await cloudinary.uploader.destroy(publicId);
+
+    // Delete category from database
+    await Category.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: "Category deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete Category Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
