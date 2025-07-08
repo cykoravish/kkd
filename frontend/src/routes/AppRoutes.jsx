@@ -7,6 +7,7 @@ import History from "../pages/transactionHistory/History";
 import Category from "../pages/category/Category";
 import Promotion from "../pages/promotion/Promotion";
 import Offer from "../pages/offer/Offer";
+import Users from "../pages/users/Users";
 
 const AppRoutes = () => {
   return (
@@ -48,6 +49,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Offer />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <Users />
           </ProtectedRoute>
         }
       />

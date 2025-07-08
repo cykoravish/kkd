@@ -11,18 +11,22 @@ export default function Home() {
     {
       title: "TOTAL USER",
       count: "10,000",
+      link: "/users",
     },
     {
       title: "TOTAL PRODUCT",
       count: "230",
+      link: "/products",
     },
     {
       title: "KYC REQUEST",
       count: "13",
+      link: "/kyc-requests",
     },
     {
       title: "WITHDRAWAL REQUEST",
       count: "100",
+      link: "/withdrawal-requests",
     },
   ]);
 
@@ -145,9 +149,9 @@ export default function Home() {
             </h2>
             <p className="text-4xl font-bold text-black">{item.count}</p>
             <div className="flex justify-end">
-              <button className="text-sm text-black font-medium hover:underline">
+              <Link to={item.link} className="text-sm text-black font-medium hover:underline">
                 View Details
-              </button>
+              </Link>
             </div>
           </div>
         ))}

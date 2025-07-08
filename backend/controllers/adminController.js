@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import Category from "../models/Category.js";
+import cloudinary from "../helpers/cloudinary/cloudinary.js";
 
 export const login = (req, res) => {
   const { emailOrPhone, password } = req.body;
