@@ -135,7 +135,7 @@ export const getUser = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "User profile fetched",
-      user,
+      data: user,
     });
   } catch (error) {
     console.error(error);
