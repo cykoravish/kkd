@@ -6,13 +6,13 @@ import cloudinary from "../../helpers/cloudinary/cloudinary.js";
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: "kkd/categories", // 👈 your Cloudinary folder name
+    folder: "kkd/profiles", // 👈 your Cloudinary folder name
     allowed_formats: ["jpg", "jpeg", "png", "webp", "avif"],
     transformation: [{ quality: "auto" }], // optional: auto-optimize
   },
 });
 
 // Multer middleware with storage config
-const uploadCategory = multer({ storage });
+const uploadProfile = multer({ storage });
 
-export default uploadCategory;
+export default uploadProfile;
