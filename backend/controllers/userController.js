@@ -179,25 +179,29 @@ export const updateProfile = async (req, res) => {
       })
     }
 
-    if (updateData.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(updateData.panNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid PAN number format",
-      })
-    }
-
-    if (updateData.aadharNumber && !/^\d{12}$/.test(updateData.aadharNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: "Aadhar number must be 12 digits",
-      })
-    }
-
     if (updateData.ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(updateData.ifscCode)) {
       return res.status(400).json({
         success: false,
         message: "Invalid IFSC code format",
       })
+    }
+
+    if (updateData.accountNumber && updateData.accountNumber.length < 9) {
+      return res.status(400).json({
+        success: false,
+        message: "Account number must be at least 9 digits",
+      })
+    }
+
+    // Validate date of birth format (optional)
+    if (updateData.dob && updateData.dob.trim() !== "") {
+      const dobRegex = /^\d{4}-\d{2}-\d{2}$|^\d{2}\/\d{2}\/\d{4}$|^\d{2}-\d{2}-\d{4}$/
+      if (!dobRegex.test(updateData.dob)) {
+        return res.status(400).json({
+          success: false,
+          message: "Date of birth must be in valid format (YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY)",
+        })
+      }
     }
 
     // Find and update user
@@ -243,58 +247,199 @@ export const updateProfile = async (req, res) => {
 }
 
 // change password for future implementation
-// export const updatePassword = async (req, res) => {
-//   try {
-//     const userId = req.user.userId
-//     const { currentPassword, newPassword } = req.body
+export const updatePassword = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { currentPassword, newPassword } = req.body
 
-//     if (!currentPassword || !newPassword) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Current password and new password are required",
-//       })
-//     }
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      })
+    }
 
-//     if (newPassword.length < 6) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "New password must be at least 6 characters long",
-//       })
-//     }
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters long",
+      })
+    }
 
-//     // Find user with password
-//     const user = await User.findOne({ userId })
-//     if (!user) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "User not found",
-//       })
-//     }
+    // Find user with password
+    const user = await User.findOne({ userId })
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
 
-//     // Verify current password
-//     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
-//     if (!isCurrentPasswordValid) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Current password is incorrect",
-//       })
-//     }
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
+    if (!isCurrentPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      })
+    }
 
-//     // Hash new password
-//     const hashedNewPassword = await bcrypt.hash(newPassword, 10)
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10)
 
-//     // Update password
-//     await User.findOneAndUpdate({ userId }, { $set: { password: hashedNewPassword } })
+    // Update password
+    await User.findOneAndUpdate({ userId }, { $set: { password: hashedNewPassword } })
 
-//     res.status(200).json({
-//       success: true,
-//       message: "Password updated successfully",
-//     })
-//   } catch (error) {
-//     console.error("Update Password Error:", error)
-//     res.status(500).json({
-//       success: false,
-//       message: "Server Error",
-//     })
-//   }
-// }
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    })
+  } catch (error) {
+    console.error("Update Password Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    })
+  }
+}
+
+// 🚀 NEW: Upload PAN Photo
+export const uploadPanPhoto = async (req, res) => {
+  try {
+    const userId = req.user.userId
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "PAN photo is required",
+      })
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          panPhoto: req.file.path,
+          isPanVerified: false, // Reset verification status when new document is uploaded
+        },
+      },
+      { new: true },
+    ).select("-password -__v")
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "PAN photo uploaded successfully",
+      data: {
+        panPhoto: updatedUser.panPhoto,
+        isPanVerified: updatedUser.isPanVerified,
+      },
+    })
+  } catch (error) {
+    console.error("Upload PAN Photo Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    })
+  }
+}
+
+// 🚀 NEW: Upload Aadhar Photo
+export const uploadAadharPhoto = async (req, res) => {
+  try {
+    const userId = req.user.userId
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Aadhar photo is required",
+      })
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          aadharPhoto: req.file.path,
+          isAadharVerified: false, // Reset verification status when new document is uploaded
+        },
+      },
+      { new: true },
+    ).select("-password -__v")
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Aadhar photo uploaded successfully",
+      data: {
+        aadharPhoto: updatedUser.aadharPhoto,
+        isAadharVerified: updatedUser.isAadharVerified,
+      },
+    })
+  } catch (error) {
+    console.error("Upload Aadhar Photo Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    })
+  }
+}
+
+// 🚀 NEW: Upload Passbook Photo
+export const uploadPassbookPhoto = async (req, res) => {
+  try {
+    const userId = req.user.userId
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Passbook photo is required",
+      })
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          passbookPhoto: req.file.path,
+          isPassbookVerified: false, // Reset verification status when new document is uploaded
+        },
+      },
+      { new: true },
+    ).select("-password -__v")
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Passbook photo uploaded successfully",
+      data: {
+        passbookPhoto: updatedUser.passbookPhoto,
+        isPassbookVerified: updatedUser.isPassbookVerified,
+      },
+    })
+  } catch (error) {
+    console.error("Upload Passbook Photo Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    })
+  }
+}

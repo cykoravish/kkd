@@ -13,6 +13,12 @@ const storage = new CloudinaryStorage({
 });
 
 // Multer middleware with storage config
-const uploadCategory = multer({ storage });
+const uploadCategory = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 5MB limit
+  },
+})
+
 
 export default uploadCategory;
