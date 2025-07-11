@@ -144,3 +144,360 @@ export const getAllUsers = async (req, res) => {
     });
   }
 };
+
+export const getPendingKYCRequests = async (req, res) => {
+  try {
+    const pendingUsers = await User.find({ kycStatus: "pending" }).select("-password -__v").sort({ kycRequestDate: -1 })
+
+    res.status(200).json({
+      success: true,
+      message: "Pending KYC requests fetched successfully",
+      data: pendingUsers,
+    })
+  } catch (error) {
+    console.error("Get Pending KYC Requests Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+export const processKYCRequest = async (req, res) => {
+  try {
+    const { userId } = req.params
+    const { action, rejectionReason } = req.body // action: 'approve' or 'reject'
+
+    if (!["approve", "reject"].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: "Action must be either 'approve' or 'reject'",
+      })
+    }
+
+    if (action === "reject" && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required when rejecting KYC",
+      })
+    }
+
+    const user = await User.findOne({ userId })
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    if (user.kycStatus !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "KYC request is not in pending status",
+      })
+    }
+
+    if (action === "approve") {
+      user.kycStatus = "approved"
+      user.kycApprovalDate = new Date()
+      user.kycRejectionReason = ""
+
+      // Approve all documents
+      user.panVerificationStatus = "verified"
+      user.aadharVerificationStatus = "verified"
+      user.passbookVerificationStatus = "verified"
+
+      // Clear rejection reasons
+      user.panRejectionReason = ""
+      user.aadharRejectionReason = ""
+      user.passbookRejectionReason = ""
+    } else {
+      user.kycStatus = "rejected"
+      user.kycRejectionReason = rejectionReason
+      user.kycApprovalDate = null
+
+      // Reset document statuses to incomplete
+      user.panVerificationStatus = "incomplete"
+      user.aadharVerificationStatus = "incomplete"
+      user.passbookVerificationStatus = "incomplete"
+      user.isProfileComplete = false
+    }
+
+    await user.save()
+
+    res.status(200).json({
+      success: true,
+      message: `KYC request ${action}d successfully`,
+      data: {
+        userId: user.userId,
+        kycStatus: user.kycStatus,
+        kycApprovalDate: user.kycApprovalDate,
+        kycRejectionReason: user.kycRejectionReason,
+      },
+    })
+  } catch (error) {
+    console.error("Process KYC Request Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+export const getKYCStats = async (req, res) => {
+  try {
+    const stats = await User.aggregate([
+      {
+        $group: {
+          _id: "$kycStatus",
+          count: { $sum: 1 },
+        },
+      },
+    ])
+
+    const formattedStats = {
+      incomplete: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+    }
+
+    stats.forEach((stat) => {
+      formattedStats[stat._id] = stat.count
+    })
+
+    res.status(200).json({
+      success: true,
+      message: "KYC statistics fetched successfully",
+      data: formattedStats,
+    })
+  } catch (error) {
+    console.error("Get KYC Stats Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+// Verify PAN Document
+export const verifyPanDocument = async (req, res) => {
+  try {
+    const { userId } = req.params
+    const { status, rejectionReason } = req.body
+
+    if (!["verified", "rejected"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be either 'verified' or 'rejected'",
+      })
+    }
+
+    if (status === "rejected" && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required when rejecting document",
+      })
+    }
+
+    const updateData = {
+      panVerificationStatus: status,
+    }
+
+    if (status === "rejected") {
+      updateData.panRejectionReason = rejectionReason
+    } else {
+      updateData.panRejectionReason = ""
+    }
+
+    const updatedUser = await User.findOneAndUpdate({ userId }, { $set: updateData }, { new: true }).select(
+      "-password -__v",
+    )
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `PAN document ${status} successfully`,
+      data: {
+        userId: updatedUser.userId,
+        panVerificationStatus: updatedUser.panVerificationStatus,
+        panRejectionReason: updatedUser.panRejectionReason,
+      },
+    })
+  } catch (error) {
+    console.error("Verify PAN Document Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+// Verify Aadhar Document
+export const verifyAadharDocument = async (req, res) => {
+  try {
+    const { userId } = req.params
+    const { status, rejectionReason } = req.body
+
+    if (!["verified", "rejected"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be either 'verified' or 'rejected'",
+      })
+    }
+
+    if (status === "rejected" && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required when rejecting document",
+      })
+    }
+
+    const updateData = {
+      aadharVerificationStatus: status,
+    }
+
+    if (status === "rejected") {
+      updateData.aadharRejectionReason = rejectionReason
+    } else {
+      updateData.aadharRejectionReason = ""
+    }
+
+    const updatedUser = await User.findOneAndUpdate({ userId }, { $set: updateData }, { new: true }).select(
+      "-password -__v",
+    )
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Aadhar document ${status} successfully`,
+      data: {
+        userId: updatedUser.userId,
+        aadharVerificationStatus: updatedUser.aadharVerificationStatus,
+        aadharRejectionReason: updatedUser.aadharRejectionReason,
+      },
+    })
+  } catch (error) {
+    console.error("Verify Aadhar Document Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+// Verify Passbook Document
+export const verifyPassbookDocument = async (req, res) => {
+  try {
+    const { userId } = req.params
+    const { status, rejectionReason } = req.body
+
+    if (!["verified", "rejected"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be either 'verified' or 'rejected'",
+      })
+    }
+
+    if (status === "rejected" && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required when rejecting document",
+      })
+    }
+
+    const updateData = {
+      passbookVerificationStatus: status,
+    }
+
+    if (status === "rejected") {
+      updateData.passbookRejectionReason = rejectionReason
+    } else {
+      updateData.passbookRejectionReason = ""
+    }
+
+    const updatedUser = await User.findOneAndUpdate({ userId }, { $set: updateData }, { new: true }).select(
+      "-password -__v",
+    )
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Passbook document ${status} successfully`,
+      data: {
+        userId: updatedUser.userId,
+        passbookVerificationStatus: updatedUser.passbookVerificationStatus,
+        passbookRejectionReason: updatedUser.passbookRejectionReason,
+      },
+    })
+  } catch (error) {
+    console.error("Verify Passbook Document Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+// Get Users by Verification Status
+export const getUsersByVerificationStatus = async (req, res) => {
+  try {
+    const { documentType, status } = req.query
+
+    if (!documentType || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "Document type and status are required",
+      })
+    }
+
+    if (!["pan", "aadhar", "passbook"].includes(documentType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Document type must be 'pan', 'aadhar', or 'passbook'",
+      })
+    }
+
+    if (!["incomplete", "processing", "verified", "rejected"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be 'incomplete', 'processing', 'verified', or 'rejected'",
+      })
+    }
+
+    const filterField = `${documentType}VerificationStatus`
+    const filter = { [filterField]: status }
+
+    const users = await User.find(filter).select("-password -__v").sort({ createdAt: -1 })
+
+    res.status(200).json({
+      success: true,
+      message: `Users with ${documentType} status '${status}' fetched successfully`,
+      data: users,
+    })
+  } catch (error) {
+    console.error("Get Users by Verification Status Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}

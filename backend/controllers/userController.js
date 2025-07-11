@@ -137,176 +137,208 @@ export const getUser = async (req, res) => {
   }
 };
 
-
 export const updateProfile = async (req, res) => {
   try {
-    const userId = req.user.userId
-    const updateData = req.body
+    const userId = req.user.userId;
+    const updateData = req.body;
 
-    // Fields that are NOT allowed to be updated directly
     const restrictedFields = [
+      // User identity (never changeable)
       "userId",
       "email",
       "phone",
       "password",
+
+      // System managed fields
       "coinsEarned",
       "productsQrScanned",
-      "isPanVerified",
-      "panPhoto",
-      "isAadharVerified",
-      "aadharPhoto",
-      "isPassbookVerified",
-      "passbookPhoto",
       "createdAt",
       "updatedAt",
       "__v",
-    ]
 
-    // Remove restricted fields from update data
+      // 🚀 Document photos (use dedicated endpoints)
+      "panPhoto",
+      "aadharPhoto",
+      "passbookPhoto",
+
+      // Document verification (admin only)
+      "panVerificationStatus",
+      "aadharVerificationStatus",
+      "passbookVerificationStatus",
+      "panRejectionReason",
+      "aadharRejectionReason",
+      "passbookRejectionReason",
+
+      // KYC system (system managed)
+      "kycStatus",
+      "kycRequestDate",
+      "kycApprovalDate",
+      "kycRejectionReason",
+      "isProfileComplete",
+    ];
+
     restrictedFields.forEach((field) => {
       if (updateData[field]) {
-        delete updateData[field]
+        delete updateData[field];
       }
-    })
+    });
 
-    // Handle profile picture if provided
     if (req.file) {
-      updateData.profilePick = req.file.path // Cloudinary URL
+      updateData.profilePick = req.file.path;
     }
 
-    // Validate specific fields if provided
     if (updateData.pinCode && !/^\d{6}$/.test(updateData.pinCode)) {
       return res.status(400).json({
         success: false,
         message: "Pin code must be 6 digits",
-      })
+      });
     }
 
-    if (updateData.ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(updateData.ifscCode)) {
+    if (
+      updateData.ifscCode &&
+      !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(updateData.ifscCode)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid IFSC code format",
-      })
+      });
     }
 
     if (updateData.accountNumber && updateData.accountNumber.length < 9) {
       return res.status(400).json({
         success: false,
         message: "Account number must be at least 9 digits",
-      })
+      });
     }
 
-    // Validate date of birth format (optional)
     if (updateData.dob && updateData.dob.trim() !== "") {
-      const dobRegex = /^\d{4}-\d{2}-\d{2}$|^\d{2}\/\d{2}\/\d{4}$|^\d{2}-\d{2}-\d{4}$/
+      const dobRegex =
+        /^\d{4}-\d{2}-\d{2}$|^\d{2}\/\d{2}\/\d{4}$|^\d{2}-\d{2}-\d{4}$/;
       if (!dobRegex.test(updateData.dob)) {
         return res.status(400).json({
           success: false,
-          message: "Date of birth must be in valid format (YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY)",
-        })
+          message:
+            "Date of birth must be in valid format (YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY)",
+        });
       }
     }
 
-    // Find and update user
-    const updatedUser = await User.findOneAndUpdate(
-      { userId },
-      { $set: updateData },
-      {
-        new: true,
-        runValidators: true,
-      },
-    ).select("-password -__v")
-
-    if (!updatedUser) {
+    const user = await User.findOne({ userId });
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
-      })
+      });
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Profile updated successfully",
-      data: updatedUser,
-    })
-  } catch (error) {
-    console.error("Update Profile Error:", error)
+    // Update user data
+    Object.keys(updateData).forEach((key) => {
+      user[key] = updateData[key];
+    });
 
-    // Handle validation errors
+    // 🚀 NEW: Check if profile is complete and create KYC request
+    let kycRequestCreated = false;
+    if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
+      kycRequestCreated = user.createKYCRequest();
+    }
+
+    await user.save();
+
+    const responseData = {
+      success: true,
+      message: kycRequestCreated
+        ? "Profile updated successfully! KYC verification request has been submitted."
+        : "Profile updated successfully",
+      data: user,
+      kycRequestCreated,
+    };
+
+    res.status(200).json(responseData);
+  } catch (error) {
+    console.error("Update Profile Error:", error);
+
     if (error.name === "ValidationError") {
-      const validationErrors = Object.values(error.errors).map((err) => err.message)
+      const validationErrors = Object.values(error.errors).map(
+        (err) => err.message
+      );
       return res.status(400).json({
         success: false,
         message: "Validation Error",
         errors: validationErrors,
-      })
+      });
     }
 
     res.status(500).json({
       success: false,
       message: "Server Error",
-    })
+    });
   }
-}
+};
 
 // change password for future implementation
 export const updatePassword = async (req, res) => {
   try {
-    const userId = req.user.userId
-    const { currentPassword, newPassword } = req.body
+    const userId = req.user.userId;
+    const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
         message: "Current password and new password are required",
-      })
+      });
     }
 
     if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
         message: "New password must be at least 6 characters long",
-      })
+      });
     }
 
     // Find user with password
-    const user = await User.findOne({ userId })
+    const user = await User.findOne({ userId });
     if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
-      })
+      });
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
     if (!isCurrentPasswordValid) {
       return res.status(401).json({
         success: false,
         message: "Current password is incorrect",
-      })
+      });
     }
 
     // Hash new password
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10)
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password
-    await User.findOneAndUpdate({ userId }, { $set: { password: hashedNewPassword } })
+    await User.findOneAndUpdate(
+      { userId },
+      { $set: { password: hashedNewPassword } }
+    );
 
     res.status(200).json({
       success: true,
       message: "Password updated successfully",
-    })
+    });
   } catch (error) {
-    console.error("Update Password Error:", error)
+    console.error("Update Password Error:", error);
     res.status(500).json({
       success: false,
       message: "Server Error",
-    })
+    });
   }
-}
+};
 
-// 🚀 NEW: Upload PAN Photo
+// 🚀 UPDATED: Upload PAN Photo with Status
 export const uploadPanPhoto = async (req, res) => {
   try {
     const userId = req.user.userId
@@ -318,31 +350,37 @@ export const uploadPanPhoto = async (req, res) => {
       })
     }
 
-    const updatedUser = await User.findOneAndUpdate(
-      { userId },
-      {
-        $set: {
-          panPhoto: req.file.path,
-          isPanVerified: false, // Reset verification status when new document is uploaded
-        },
-      },
-      { new: true },
-    ).select("-password -__v")
-
-    if (!updatedUser) {
+    const user = await User.findOne({ userId })
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
       })
     }
 
+    user.panPhoto = req.file.path
+    user.panVerificationStatus = "processing"
+    user.panRejectionReason = ""
+
+    // Check if profile is complete and create KYC request
+    let kycRequestCreated = false
+    if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
+      kycRequestCreated = user.createKYCRequest()
+    }
+
+    await user.save()
+
     res.status(200).json({
       success: true,
-      message: "PAN photo uploaded successfully",
+      message: kycRequestCreated
+        ? "PAN photo uploaded successfully. KYC verification request has been submitted."
+        : "PAN photo uploaded successfully. Verification in progress.",
       data: {
-        panPhoto: updatedUser.panPhoto,
-        isPanVerified: updatedUser.isPanVerified,
+        panPhoto: user.panPhoto,
+        panVerificationStatus: user.panVerificationStatus,
+        kycStatus: user.kycStatus,
       },
+      kycRequestCreated,
     })
   } catch (error) {
     console.error("Upload PAN Photo Error:", error)
@@ -353,7 +391,7 @@ export const uploadPanPhoto = async (req, res) => {
   }
 }
 
-// 🚀 NEW: Upload Aadhar Photo
+// 🚀 UPDATED: Upload Aadhar Photo with Status
 export const uploadAadharPhoto = async (req, res) => {
   try {
     const userId = req.user.userId
@@ -365,31 +403,36 @@ export const uploadAadharPhoto = async (req, res) => {
       })
     }
 
-    const updatedUser = await User.findOneAndUpdate(
-      { userId },
-      {
-        $set: {
-          aadharPhoto: req.file.path,
-          isAadharVerified: false, // Reset verification status when new document is uploaded
-        },
-      },
-      { new: true },
-    ).select("-password -__v")
-
-    if (!updatedUser) {
+    const user = await User.findOne({ userId })
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
       })
     }
 
+    user.aadharPhoto = req.file.path
+    user.aadharVerificationStatus = "processing"
+    user.aadharRejectionReason = ""
+
+    let kycRequestCreated = false
+    if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
+      kycRequestCreated = user.createKYCRequest()
+    }
+
+    await user.save()
+
     res.status(200).json({
       success: true,
-      message: "Aadhar photo uploaded successfully",
+      message: kycRequestCreated
+        ? "Aadhar photo uploaded successfully. KYC verification request has been submitted."
+        : "Aadhar photo uploaded successfully. Verification in progress.",
       data: {
-        aadharPhoto: updatedUser.aadharPhoto,
-        isAadharVerified: updatedUser.isAadharVerified,
+        aadharPhoto: user.aadharPhoto,
+        aadharVerificationStatus: user.aadharVerificationStatus,
+        kycStatus: user.kycStatus,
       },
+      kycRequestCreated,
     })
   } catch (error) {
     console.error("Upload Aadhar Photo Error:", error)
@@ -400,7 +443,7 @@ export const uploadAadharPhoto = async (req, res) => {
   }
 }
 
-// 🚀 NEW: Upload Passbook Photo
+// 🚀 UPDATED: Upload Passbook Photo with Status
 export const uploadPassbookPhoto = async (req, res) => {
   try {
     const userId = req.user.userId
@@ -412,31 +455,36 @@ export const uploadPassbookPhoto = async (req, res) => {
       })
     }
 
-    const updatedUser = await User.findOneAndUpdate(
-      { userId },
-      {
-        $set: {
-          passbookPhoto: req.file.path,
-          isPassbookVerified: false, // Reset verification status when new document is uploaded
-        },
-      },
-      { new: true },
-    ).select("-password -__v")
-
-    if (!updatedUser) {
+    const user = await User.findOne({ userId })
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
       })
     }
 
+    user.passbookPhoto = req.file.path
+    user.passbookVerificationStatus = "processing"
+    user.passbookRejectionReason = ""
+
+    let kycRequestCreated = false
+    if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
+      kycRequestCreated = user.createKYCRequest()
+    }
+
+    await user.save()
+
     res.status(200).json({
       success: true,
-      message: "Passbook photo uploaded successfully",
+      message: kycRequestCreated
+        ? "Passbook photo uploaded successfully. KYC verification request has been submitted."
+        : "Passbook photo uploaded successfully. Verification in progress.",
       data: {
-        passbookPhoto: updatedUser.passbookPhoto,
-        isPassbookVerified: updatedUser.isPassbookVerified,
+        passbookPhoto: user.passbookPhoto,
+        passbookVerificationStatus: user.passbookVerificationStatus,
+        kycStatus: user.kycStatus,
       },
+      kycRequestCreated,
     })
   } catch (error) {
     console.error("Upload Passbook Photo Error:", error)

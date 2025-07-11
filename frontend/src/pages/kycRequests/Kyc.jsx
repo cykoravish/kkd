@@ -6,7 +6,7 @@ import { IoIosArrowRoundBack, IoIosSearch, IoIosClose } from "react-icons/io";
 import { Link } from "react-router-dom";
 import { api } from "../../helpers/api/api";
 
-export default function Users() {
+export default function KYC() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -14,6 +14,9 @@ export default function Users() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [kycStats, setKycStats] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
   const usersPerPage = 9;
 
   // 🚀 Helper function to get status color and text
@@ -82,73 +85,85 @@ export default function Users() {
     }
   };
 
-  // 🚀 Enhanced API call with complete field mapping
+  // 🚀 Fetch KYC requests and stats
   useEffect(() => {
-    const getAllUsers = async () => {
+    const fetchKYCData = async () => {
       setUsersLoading(true);
       setError(null);
 
       try {
-        const response = await api.get("/api/admin/all-users");
+        // Fetch pending KYC requests and stats in parallel
+        const [kycRequestsResponse, kycStatsResponse] = await Promise.all([
+          api.get("/api/admin/kyc-requests"),
+          api.get("/api/admin/kyc-stats"),
+        ]);
 
-        if (response.data.success) {
-          // 🔧 Complete data transformation with all new fields
-          const transformedUsers = response.data.data.map((user, index) => ({
-            id: user._id || `user_${index}`,
-            userId: user.userId || "",
-            name: user.fullName || "Unknown User",
-            phone: user.phone || "No phone",
-            image: user.profilePick || "/placeholder.svg?height=48&width=48",
-            role: "User",
-            email: user.email || "No email",
-            dateOfBirth: user.dob || "Not provided",
-            address: user.address || "Not provided",
-            pinCode: user.pinCode || "Not provided",
-            state: user.state || "Not provided",
-            country: user.country || "Not provided",
-            accountNumber: user.accountNumber
-              ? "****" + user.accountNumber.slice(-4)
-              : "Not provided",
-            accountHolder:
-              user.accountHolderName || user.fullName || "Not provided",
-            bankName: user.bankName || "Not provided",
-            ifsc: user.ifscCode || "Not provided",
-            coinsEarned: user.coinsEarned || 0,
+        if (kycRequestsResponse.data.success) {
+          // Transform KYC requests data
+          const transformedUsers = kycRequestsResponse.data.data.map(
+            (user, index) => ({
+              id: user._id || `user_${index}`,
+              userId: user.userId || "",
+              name: user.fullName || "Unknown User",
+              phone: user.phone || "No phone",
+              image: user.profilePick || "/placeholder.svg?height=48&width=48",
+              role: "User",
+              email: user.email || "No email",
+              dateOfBirth: user.dob || "Not provided",
+              address: user.address || "Not provided",
+              pinCode: user.pinCode || "Not provided",
+              state: user.state || "Not provided",
+              country: user.country || "Not provided",
+              accountNumber: user.accountNumber
+                ? "****" + user.accountNumber.slice(-4)
+                : "Not provided",
+              accountHolder:
+                user.accountHolderName || user.fullName || "Not provided",
+              bankName: user.bankName || "Not provided",
+              ifsc: user.ifscCode || "Not provided",
+              coinsEarned: user.coinsEarned || 0,
 
-            // 🚀 NEW: Complete status-based verification fields
-            panVerificationStatus: user.panVerificationStatus || "incomplete",
-            aadharVerificationStatus:
-              user.aadharVerificationStatus || "incomplete",
-            passbookVerificationStatus:
-              user.passbookVerificationStatus || "incomplete",
-            panRejectionReason: user.panRejectionReason || "",
-            aadharRejectionReason: user.aadharRejectionReason || "",
-            passbookRejectionReason: user.passbookRejectionReason || "",
+              // Status-based verification fields
+              panVerificationStatus: user.panVerificationStatus || "incomplete",
+              aadharVerificationStatus:
+                user.aadharVerificationStatus || "incomplete",
+              passbookVerificationStatus:
+                user.passbookVerificationStatus || "incomplete",
+              panRejectionReason: user.panRejectionReason || "",
+              aadharRejectionReason: user.aadharRejectionReason || "",
+              passbookRejectionReason: user.passbookRejectionReason || "",
 
-            // 🚀 NEW: KYC status fields
-            kycStatus: user.kycStatus || "incomplete",
-            kycRequestDate: user.kycRequestDate,
-            kycApprovalDate: user.kycApprovalDate,
-            kycRejectionReason: user.kycRejectionReason || "",
-            isProfileComplete: user.isProfileComplete || false,
+              // KYC status fields
+              kycStatus: user.kycStatus || "incomplete",
+              kycRequestDate: user.kycRequestDate,
+              kycApprovalDate: user.kycApprovalDate,
+              kycRejectionReason: user.kycRejectionReason || "",
+              isProfileComplete: user.isProfileComplete || false,
 
-            // Legacy boolean fields for backward compatibility
-            isPanVerified: user.panVerificationStatus === "verified",
-            isAadharVerified: user.aadharVerificationStatus === "verified",
-            isPassbookVerified: user.passbookVerificationStatus === "verified",
+              // Legacy boolean fields for backward compatibility
+              isPanVerified: user.panVerificationStatus === "verified",
+              isAadharVerified: user.aadharVerificationStatus === "verified",
+              isPassbookVerified:
+                user.passbookVerificationStatus === "verified",
 
-            // Document URLs
-            panPhoto: user.panPhoto,
-            aadharPhoto: user.aadharPhoto,
-            passbookPhoto: user.passbookPhoto,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
-          }));
+              // Document URLs
+              panPhoto: user.panPhoto,
+              aadharPhoto: user.aadharPhoto,
+              passbookPhoto: user.passbookPhoto,
+              createdAt: user.createdAt,
+              updatedAt: user.updatedAt,
+            })
+          );
 
           setUsers(transformedUsers);
-          console.log("✅ Users loaded:", transformedUsers.length);
+          console.log("✅ KYC Requests loaded:", transformedUsers.length);
         } else {
-          setError("Failed to fetch users from server");
+          setError("Failed to fetch KYC requests from server");
+        }
+
+        if (kycStatsResponse.data.success) {
+          setKycStats(kycStatsResponse.data.data);
+          console.log("✅ KYC Stats loaded:", kycStatsResponse.data.data);
         }
       } catch (err) {
         console.error("❌ API Error:", err);
@@ -158,8 +173,101 @@ export default function Users() {
       }
     };
 
-    getAllUsers();
+    fetchKYCData();
   }, []);
+
+  // 🚀 KYC Approval/Rejection handlers
+  const handleKYCAction = useCallback(
+    async (userId, action, rejectionReason = "") => {
+      try {
+        setIsLoading(true);
+
+        const response = await api.put(`/api/admin/kyc-process/${userId}`, {
+          action,
+          rejectionReason: action === "reject" ? rejectionReason : "",
+        });
+
+        if (response.data.success) {
+          // Refresh the KYC requests list
+          const kycResponse = await api.get("/api/admin/kyc-requests");
+          if (kycResponse.data.success) {
+            const transformedUsers = kycResponse.data.data.map(
+              (user, index) => ({
+                id: user._id || `user_${index}`,
+                userId: user.userId || "",
+                name: user.fullName || "Unknown User",
+                phone: user.phone || "No phone",
+                image:
+                  user.profilePick || "/placeholder.svg?height=48&width=48",
+                role: "User",
+                email: user.email || "No email",
+                dateOfBirth: user.dob || "Not provided",
+                address: user.address || "Not provided",
+                pinCode: user.pinCode || "Not provided",
+                state: user.state || "Not provided",
+                country: user.country || "Not provided",
+                accountNumber: user.accountNumber
+                  ? "****" + user.accountNumber.slice(-4)
+                  : "Not provided",
+                accountHolder:
+                  user.accountHolderName || user.fullName || "Not provided",
+                bankName: user.bankName || "Not provided",
+                ifsc: user.ifscCode || "Not provided",
+                coinsEarned: user.coinsEarned || 0,
+                panVerificationStatus:
+                  user.panVerificationStatus || "incomplete",
+                aadharVerificationStatus:
+                  user.aadharVerificationStatus || "incomplete",
+                passbookVerificationStatus:
+                  user.passbookVerificationStatus || "incomplete",
+                panRejectionReason: user.panRejectionReason || "",
+                aadharRejectionReason: user.aadharRejectionReason || "",
+                passbookRejectionReason: user.passbookRejectionReason || "",
+                kycStatus: user.kycStatus || "incomplete",
+                kycRequestDate: user.kycRequestDate,
+                kycApprovalDate: user.kycApprovalDate,
+                kycRejectionReason: user.kycRejectionReason || "",
+                isProfileComplete: user.isProfileComplete || false,
+                isPanVerified: user.panVerificationStatus === "verified",
+                isAadharVerified: user.aadharVerificationStatus === "verified",
+                isPassbookVerified:
+                  user.passbookVerificationStatus === "verified",
+                panPhoto: user.panPhoto,
+                aadharPhoto: user.aadharPhoto,
+                passbookPhoto: user.passbookPhoto,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
+              })
+            );
+            setUsers(transformedUsers);
+          }
+
+          // Update stats
+          const statsResponse = await api.get("/api/admin/kyc-stats");
+          if (statsResponse.data.success) {
+            setKycStats(statsResponse.data.data);
+          }
+
+          // Close details if the processed user was selected
+          if (selectedUser && selectedUser.userId === userId) {
+            setSelectedUser(null);
+          }
+
+          alert(`KYC ${action}d successfully!`);
+          setShowRejectModal(false);
+          setRejectionReason("");
+        } else {
+          throw new Error(response.data.message || `Failed to ${action} KYC`);
+        }
+      } catch (error) {
+        console.error("Error processing KYC:", error);
+        alert(error.response?.data?.message || `Failed to ${action} KYC`);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [selectedUser]
+  );
 
   // 🚀 Optimized search with useMemo
   const filteredUsers = useMemo(() => {
@@ -219,6 +327,24 @@ export default function Users() {
     }
   }, []);
 
+  // 🚀 Handle reject modal
+  const handleRejectClick = useCallback(() => {
+    setShowRejectModal(true);
+  }, []);
+
+  const handleRejectCancel = useCallback(() => {
+    setShowRejectModal(false);
+    setRejectionReason("");
+  }, []);
+
+  const handleRejectConfirm = useCallback(() => {
+    if (rejectionReason.trim()) {
+      handleKYCAction(selectedUser.userId, "reject", rejectionReason.trim());
+    } else {
+      alert("Please provide a rejection reason");
+    }
+  }, [rejectionReason, selectedUser, handleKYCAction]);
+
   // 🚀 Loading state
   if (usersLoading) {
     return (
@@ -228,7 +354,7 @@ export default function Users() {
           <div className="flex justify-center items-center py-20">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading users...</p>
+              <p className="text-gray-600">Loading KYC requests...</p>
             </div>
           </div>
         </div>
@@ -246,12 +372,12 @@ export default function Users() {
             <div className="text-center">
               <div className="text-red-500 text-6xl mb-4">⚠️</div>
               <h2 className="text-xl font-semibold text-red-600 mb-2">
-                Error Loading Users
+                Error Loading KYC Requests
               </h2>
               <p className="text-gray-600 mb-4">{error}</p>
               <button
                 onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Retry
               </button>
@@ -267,58 +393,125 @@ export default function Users() {
       <div className="px-4 sm:px-6 lg:px-10 pt-7 pb-12 space-y-6">
         <Header />
 
-        {/* Header with back button */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h2 className="font-semibold text-black text-lg flex items-center">
-            <Link to="/">
-              <IoIosArrowRoundBack size={35} className="mr-1 text-black" />
-            </Link>
-            Registered Users ({filteredUsers.length})
-          </h2>
+        {/* Header with back button and stats */}
+        <div className="flex flex-col space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h2 className="font-semibold text-black text-lg flex items-center">
+              <Link to="/">
+                <IoIosArrowRoundBack
+                  size={35}
+                  className="mr-1 text-black hover:text-gray-700 transition-colors"
+                />
+              </Link>
+              KYC Verification Requests ({filteredUsers.length})
+            </h2>
 
-          {/* Search bar */}
-          <div className="relative w-full sm:w-80">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <IoIosSearch className="h-5 w-5 text-gray-400" />
+            {/* Search bar */}
+            <div className="relative w-full sm:w-80">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <IoIosSearch className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search KYC requests..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+              {searchTerm && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  <IoIosClose className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                </button>
+              )}
             </div>
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            {searchTerm && (
-              <button
-                onClick={clearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                <IoIosClose className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-              </button>
-            )}
           </div>
+
+          {/* 🚀 KYC Stats Dashboard */}
+          {kycStats && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl">⏳</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Pending</p>
+                    <p className="text-xl font-semibold text-yellow-600">
+                      {kycStats.pending || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl">✅</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Approved</p>
+                    <p className="text-xl font-semibold text-green-600">
+                      {kycStats.approved || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg border border-red-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl">❌</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Rejected</p>
+                    <p className="text-xl font-semibold text-red-600">
+                      {kycStats.rejected || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl">📋</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Incomplete</p>
+                    <p className="text-xl font-semibold text-gray-600">
+                      {kycStats.incomplete || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Results count */}
-        <div className="text-sm text-gray-600">
-          Showing {currentContacts.length} of {filteredUsers.length} users
-          {searchTerm && ` for "${searchTerm}"`}
-        </div>
+        {!selectedUser && (
+          <div className="text-sm text-gray-600">
+            Showing {currentContacts.length} of {filteredUsers.length} pending
+            KYC requests
+            {searchTerm && ` for "${searchTerm}"`}
+          </div>
+        )}
 
         {/* Main content */}
         <div className="relative">
           {!selectedUser ? (
             <div className="space-y-6">
-              {/* Users grid */}
+              {/* KYC Requests grid */}
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {currentContacts.map((contact) => {
                   const kycInfo = getKYCStatusInfo(contact.kycStatus);
+                  const requestDate = contact.kycRequestDate
+                    ? new Date(contact.kycRequestDate)
+                    : null;
+                  const daysSinceRequest = requestDate
+                    ? Math.floor(
+                        (new Date() - requestDate) / (1000 * 60 * 60 * 24)
+                      )
+                    : 0;
+
                   return (
                     <div
                       key={contact.id}
-                      className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200"
+                      className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-yellow-400"
                     >
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <div className="flex items-center space-x-3 mb-3">
                         <img
                           src={contact.image || "/placeholder.svg"}
                           alt={contact.name}
@@ -332,61 +525,78 @@ export default function Users() {
                           <p className="text-xs text-gray-500 truncate">
                             {contact.phone}
                           </p>
-                          {/* 🚀 Enhanced status indicators */}
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span
-                              className={`inline-block w-2 h-2 rounded-full ${
-                                getStatusInfo(contact.panVerificationStatus)
-                                  .color
-                              }`}
-                              title={`PAN ${
-                                getStatusInfo(contact.panVerificationStatus)
-                                  .text
-                              }`}
-                            />
-                            <span
-                              className={`inline-block w-2 h-2 rounded-full ${
-                                getStatusInfo(contact.aadharVerificationStatus)
-                                  .color
-                              }`}
-                              title={`Aadhar ${
-                                getStatusInfo(contact.aadharVerificationStatus)
-                                  .text
-                              }`}
-                            />
-                            <span
-                              className={`inline-block w-2 h-2 rounded-full ${
-                                getStatusInfo(
-                                  contact.passbookVerificationStatus
-                                ).color
-                              }`}
-                              title={`Passbook ${
-                                getStatusInfo(
-                                  contact.passbookVerificationStatus
-                                ).text
-                              }`}
-                            />
-                            <span className="text-xs text-gray-400">
-                              {contact.coinsEarned} coins
-                            </span>
-                          </div>
-                          {/* 🚀 KYC Status Badge */}
-                          <div className="mt-1">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${kycInfo.color}`}
-                            >
-                              <span className="mr-1">{kycInfo.icon}</span>
-                              {kycInfo.text}
-                            </span>
-                          </div>
+                          <p className="text-xs text-gray-400 font-mono">
+                            {contact.userId}
+                          </p>
                         </div>
                       </div>
+
+                      {/* KYC Request Info */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span
+                            className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${kycInfo.color}`}
+                          >
+                            <span className="mr-1">{kycInfo.icon}</span>
+                            {kycInfo.text}
+                          </span>
+                          {requestDate && (
+                            <span className="text-xs text-gray-500">
+                              {daysSinceRequest === 0
+                                ? "Today"
+                                : `${daysSinceRequest}d ago`}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Document Status Indicators */}
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full ${
+                              getStatusInfo(contact.panVerificationStatus).color
+                            }`}
+                            title={`PAN ${
+                              getStatusInfo(contact.panVerificationStatus).text
+                            }`}
+                          />
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full ${
+                              getStatusInfo(contact.aadharVerificationStatus)
+                                .color
+                            }`}
+                            title={`Aadhar ${
+                              getStatusInfo(contact.aadharVerificationStatus)
+                                .text
+                            }`}
+                          />
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full ${
+                              getStatusInfo(contact.passbookVerificationStatus)
+                                .color
+                            }`}
+                            title={`Passbook ${
+                              getStatusInfo(contact.passbookVerificationStatus)
+                                .text
+                            }`}
+                          />
+                          <span className="text-xs text-gray-400">
+                            {contact.coinsEarned} coins
+                          </span>
+                        </div>
+
+                        {requestDate && (
+                          <p className="text-xs text-gray-500">
+                            Requested: {requestDate.toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+
                       <button
                         onClick={() => handleViewDetails(contact)}
                         disabled={isLoading}
-                        className="text-sm font-medium text-blue-600 hover:underline disabled:opacity-50 flex-shrink-0 ml-2"
+                        className="w-full text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline disabled:opacity-50 text-center py-2 border border-blue-200 rounded-md hover:bg-blue-50 transition-all duration-200"
                       >
-                        {isLoading ? "Loading..." : "View Details"}
+                        {isLoading ? "Loading..." : "Review KYC Request"}
                       </button>
                     </div>
                   );
@@ -403,7 +613,7 @@ export default function Users() {
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Previous
                     </button>
@@ -427,7 +637,7 @@ export default function Users() {
                             <button
                               key={pageNum}
                               onClick={() => handlePageChange(pageNum)}
-                              className={`px-3 py-1 text-sm rounded-md ${
+                              className={`px-3 py-1 text-sm rounded-md transition-colors ${
                                 currentPage === pageNum
                                   ? "bg-blue-600 text-white"
                                   : "border border-gray-300 hover:bg-gray-50"
@@ -443,7 +653,7 @@ export default function Users() {
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Next
                     </button>
@@ -452,13 +662,15 @@ export default function Users() {
               )}
             </div>
           ) : (
-            // 🚀 Enhanced User details view
+            // 🚀 Enhanced User details view with KYC actions
             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)]">
-              {/* Left side - User list (hidden on mobile) */}
+              {/* Left side - KYC Requests list (hidden on mobile) */}
               <div className="hidden lg:block lg:w-1/3">
                 <div className="bg-white rounded-xl shadow-sm h-full flex flex-col">
                   <div className="p-4 border-b border-gray-200">
-                    <h3 className="font-semibold text-gray-800">All Users</h3>
+                    <h3 className="font-semibold text-gray-800">
+                      Pending KYC Requests
+                    </h3>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {filteredUsers.map((contact) => {
@@ -502,105 +714,33 @@ export default function Users() {
                 </div>
               </div>
 
-              {/* Right side - Enhanced User details */}
+              {/* Right side - Enhanced User details with KYC Actions */}
               <div className="w-full lg:w-2/3">
                 <div className="bg-white rounded-xl shadow-sm h-full flex flex-col">
-                  {/* 🚀 Enhanced Header with more info */}
-                  <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={handleCloseDetails}
-                        className="lg:hidden p-2 hover:bg-gray-100 rounded-full"
-                      >
-                        <IoIosArrowRoundBack size={24} />
-                      </button>
-                      <img
-                        src={selectedUser.image || "/placeholder.svg"}
-                        alt={selectedUser.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-800">
-                          {selectedUser.name}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          ID: {selectedUser.userId} • {selectedUser.coinsEarned}{" "}
-                          coins
-                        </p>
-                        {/* 🚀 KYC Status in header */}
-                        <div className="mt-1">
-                          <span
-                            className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
-                              getKYCStatusInfo(selectedUser.kycStatus).color
-                            }`}
-                          >
-                            <span className="mr-1">
-                              {getKYCStatusInfo(selectedUser.kycStatus).icon}
-                            </span>
-                            {getKYCStatusInfo(selectedUser.kycStatus).text}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {/* 🚀 Enhanced verification status */}
-                      <div className="flex space-x-1">
-                        <span
-                          className={`inline-block w-3 h-3 rounded-full ${
-                            getStatusInfo(selectedUser.panVerificationStatus)
-                              .color
-                          }`}
-                          title={`PAN ${
-                            getStatusInfo(selectedUser.panVerificationStatus)
-                              .text
-                          }`}
+                  {/* 🚀 Enhanced Header with KYC actions */}
+                  <div className="p-6 border-b border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={handleCloseDetails}
+                          className="lg:hidden p-2 hover:bg-gray-100 rounded-full"
+                        >
+                          <IoIosArrowRoundBack size={24} />
+                        </button>
+                        <img
+                          src={selectedUser.image || "/placeholder.svg"}
+                          alt={selectedUser.name}
+                          className="w-12 h-12 rounded-full object-cover"
                         />
-                        <span
-                          className={`inline-block w-3 h-3 rounded-full ${
-                            getStatusInfo(selectedUser.aadharVerificationStatus)
-                              .color
-                          }`}
-                          title={`Aadhar ${
-                            getStatusInfo(selectedUser.aadharVerificationStatus)
-                              .text
-                          }`}
-                        />
-                        <span
-                          className={`inline-block w-3 h-3 rounded-full ${
-                            getStatusInfo(
-                              selectedUser.passbookVerificationStatus
-                            ).color
-                          }`}
-                          title={`Passbook ${
-                            getStatusInfo(
-                              selectedUser.passbookVerificationStatus
-                            ).text
-                          }`}
-                        />
-                      </div>
-                      <button
-                        onClick={handleCloseDetails}
-                        className="hidden lg:block p-2 hover:bg-gray-100 rounded-full"
-                      >
-                        <IoIosClose size={24} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 🚀 Enhanced Scrollable content */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {/* 🚀 NEW: KYC Overview Section */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100">
-                      <h4 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                        <span className="mr-2">🔐</span>
-                        KYC & Verification Overview
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">
-                              KYC Status
-                            </span>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-800">
+                            {selectedUser.name}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            ID: {selectedUser.userId} •{" "}
+                            {selectedUser.coinsEarned} coins
+                          </p>
+                          <div className="mt-1">
                             <span
                               className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
                                 getKYCStatusInfo(selectedUser.kycStatus).color
@@ -610,6 +750,63 @@ export default function Users() {
                                 {getKYCStatusInfo(selectedUser.kycStatus).icon}
                               </span>
                               {getKYCStatusInfo(selectedUser.kycStatus).text}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleCloseDetails}
+                        className="hidden lg:block p-2 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <IoIosClose size={24} />
+                      </button>
+                    </div>
+
+                    {/* 🚀 KYC Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={() =>
+                          handleKYCAction(selectedUser.userId, "approve")
+                        }
+                        disabled={isLoading}
+                        className="flex items-center justify-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <span>✅</span>
+                        <span>
+                          {isLoading ? "Processing..." : "Approve KYC"}
+                        </span>
+                      </button>
+                      <button
+                        onClick={handleRejectClick}
+                        disabled={isLoading}
+                        className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <span>❌</span>
+                        <span>Reject KYC</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 🚀 Scrollable content with all user details */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* KYC Request Information */}
+                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-4 rounded-lg border border-yellow-200">
+                      <h4 className="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                        <span className="mr-2">⏳</span>
+                        KYC Request Details
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">
+                              Request Date
+                            </span>
+                            <span className="text-sm font-medium text-gray-800">
+                              {selectedUser.kycRequestDate
+                                ? new Date(
+                                    selectedUser.kycRequestDate
+                                  ).toLocaleDateString()
+                                : "Not available"}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
@@ -630,40 +827,38 @@ export default function Users() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          {selectedUser.kycRequestDate && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">
-                                KYC Requested
-                              </span>
-                              <span className="text-sm font-medium text-gray-800">
-                                {new Date(
-                                  selectedUser.kycRequestDate
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
-                          {selectedUser.kycApprovalDate && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">
-                                KYC Approved
-                              </span>
-                              <span className="text-sm font-medium text-green-600">
-                                {new Date(
-                                  selectedUser.kycApprovalDate
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">
+                              Days Pending
+                            </span>
+                            <span className="text-sm font-medium text-orange-600">
+                              {selectedUser.kycRequestDate
+                                ? Math.floor(
+                                    (new Date() -
+                                      new Date(selectedUser.kycRequestDate)) /
+                                      (1000 * 60 * 60 * 24)
+                                  )
+                                : 0}{" "}
+                              days
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">
+                              Priority
+                            </span>
+                            <span className="text-sm font-medium text-red-600">
+                              {selectedUser.kycRequestDate &&
+                              Math.floor(
+                                (new Date() -
+                                  new Date(selectedUser.kycRequestDate)) /
+                                  (1000 * 60 * 60 * 24)
+                              ) > 7
+                                ? "🔴 High"
+                                : "🟡 Normal"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      {selectedUser.kycRejectionReason && (
-                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="text-sm text-red-600">
-                            <strong>KYC Rejection Reason:</strong>{" "}
-                            {selectedUser.kycRejectionReason}
-                          </p>
-                        </div>
-                      )}
                     </div>
 
                     {/* Personal Details */}
@@ -788,11 +983,11 @@ export default function Users() {
                       </div>
                     </div>
 
-                    {/* 🚀 Enhanced Documents Section */}
+                    {/* Documents Section */}
                     <div>
                       <h4 className="text-base font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2 flex items-center">
                         <span className="mr-2">📄</span>
-                        Documents & Verification Status
+                        Documents for Verification
                       </h4>
                       <div className="space-y-4">
                         {/* PAN Card */}
@@ -1060,7 +1255,7 @@ export default function Users() {
                       </div>
                     </div>
 
-                    {/* 🚀 Account Statistics */}
+                    {/* Account Statistics */}
                     <div>
                       <h4 className="text-base font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2 flex items-center">
                         <span className="mr-2">📊</span>
@@ -1122,13 +1317,54 @@ export default function Users() {
           <div className="text-center py-12">
             <div className="text-gray-500 text-lg mb-2">
               {searchTerm
-                ? `No users found for "${searchTerm}"`
-                : "No users found"}
+                ? `No KYC requests found for "${searchTerm}"`
+                : "No pending KYC requests"}
             </div>
             <div className="text-gray-400 text-sm">
               {searchTerm
                 ? "Try adjusting your search terms"
-                : "No users have been registered yet"}
+                : "All KYC requests have been processed"}
+            </div>
+          </div>
+        )}
+
+        {/* 🚀 Rejection Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Reject KYC Request
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Please provide a reason for rejecting{" "}
+                <strong>{selectedUser?.name}</strong>'s KYC request:
+              </p>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Enter rejection reason..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                rows={4}
+                maxLength={500}
+              />
+              <div className="text-xs text-gray-500 mt-1 text-right">
+                {rejectionReason.length}/500 characters
+              </div>
+              <div className="flex justify-end space-x-3 mt-4">
+                <button
+                  onClick={handleRejectCancel}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRejectConfirm}
+                  disabled={!rejectionReason.trim() || isLoading}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isLoading ? "Processing..." : "Reject KYC"}
+                </button>
+              </div>
             </div>
           </div>
         )}
