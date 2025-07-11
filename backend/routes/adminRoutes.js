@@ -3,6 +3,7 @@ import {
   addCategory,
   deleteCategory,
   getAllCategories,
+  getAllUsers,
   login,
   verifyToken,
 } from "../controllers/adminController.js";
@@ -19,5 +20,7 @@ adminRouter.post("/add-category", uploadCategory.single("categoryImage"), addCat
 adminRouter.get("/categories", getAllCategories);
 
 adminRouter.delete("/delete-category/:id", deleteCategory);
+
+adminRouter.get("/all-users", getAllUsers);
 
 export default adminRouter;

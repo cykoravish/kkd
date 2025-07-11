@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
+import axios from "axios"
 import Header from "../../components/header/Header"
 import { IoIosArrowRoundBack, IoIosSearch, IoIosClose } from "react-icons/io"
 import { Link } from "react-router-dom"
@@ -10,240 +11,164 @@ export default function Users() {
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [users, setUsers] = useState([])
+  const [usersLoading, setUsersLoading] = useState(true)
+  const [error, setError] = useState(null)
   const usersPerPage = 9
 
-  const contacts = [
-    {
-      id: 1,
-      name: "Esther Howard",
-      phone: "(505) 555-0125",
-      image: "https://randomuser.me/api/portraits/women/68.jpg",
-      role: "Contractor",
-      email: "ak@gmail.com",
-      dateOfBirth: "15-3-2004",
-      address: "Prem nagar",
-      pinCode: "248001",
-      state: "Dehradun",
-      country: "India",
-      accountNumber: "7873 2323 2343 3234",
-      accountHolder: "Avneesh",
-      bankName: "SBI bank",
-      ifsc: "SBIN230001",
-    },
-    {
-      id: 2,
-      name: "John Smith",
-      phone: "(555) 123-4567",
-      image: "https://randomuser.me/api/portraits/men/32.jpg",
-      role: "Developer",
-      email: "john@gmail.com",
-      dateOfBirth: "22-8-1995",
-      address: "Main Street 123",
-      pinCode: "110001",
-      state: "Delhi",
-      country: "India",
-      accountNumber: "9876 5432 1098 7654",
-      accountHolder: "John Smith",
-      bankName: "HDFC Bank",
-      ifsc: "HDFC0001234",
-    },
-    {
-      id: 3,
-      name: "Sarah Johnson",
-      phone: "(555) 987-6543",
-      image: "https://randomuser.me/api/portraits/women/45.jpg",
-      role: "Designer",
-      email: "sarah@gmail.com",
-      dateOfBirth: "10-12-1992",
-      address: "Park Avenue 456",
-      pinCode: "400001",
-      state: "Mumbai",
-      country: "India",
-      accountNumber: "1234 5678 9012 3456",
-      accountHolder: "Sarah Johnson",
-      bankName: "ICICI Bank",
-      ifsc: "ICIC0001234",
-    },
-    {
-      id: 4,
-      name: "Michael Brown",
-      phone: "(555) 456-7890",
-      image: "https://randomuser.me/api/portraits/men/67.jpg",
-      role: "Manager",
-      email: "michael@gmail.com",
-      dateOfBirth: "5-7-1988",
-      address: "Oak Street 789",
-      pinCode: "560001",
-      state: "Bangalore",
-      country: "India",
-      accountNumber: "5678 9012 3456 7890",
-      accountHolder: "Michael Brown",
-      bankName: "Axis Bank",
-      ifsc: "UTIB0001234",
-    },
-    {
-      id: 5,
-      name: "Emily Davis",
-      phone: "(555) 321-0987",
-      image: "https://randomuser.me/api/portraits/women/23.jpg",
-      role: "Analyst",
-      email: "emily@gmail.com",
-      dateOfBirth: "18-11-1996",
-      address: "Elm Street 321",
-      pinCode: "600001",
-      state: "Chennai",
-      country: "India",
-      accountNumber: "2345 6789 0123 4567",
-      accountHolder: "Emily Davis",
-      bankName: "PNB Bank",
-      ifsc: "PUNB0001234",
-    },
-    {
-      id: 6,
-      name: "David Wilson",
-      phone: "(555) 654-3210",
-      image: "https://randomuser.me/api/portraits/men/89.jpg",
-      role: "Consultant",
-      email: "david@gmail.com",
-      dateOfBirth: "25-4-1990",
-      address: "Maple Avenue 654",
-      pinCode: "700001",
-      state: "Kolkata",
-      country: "India",
-      accountNumber: "3456 7890 1234 5678",
-      accountHolder: "David Wilson",
-      bankName: "BOI Bank",
-      ifsc: "BKID0001234",
-    },
-    {
-      id: 7,
-      name: "Lisa Anderson",
-      phone: "(555) 789-0123",
-      image: "https://randomuser.me/api/portraits/women/56.jpg",
-      role: "Coordinator",
-      email: "lisa@gmail.com",
-      dateOfBirth: "12-9-1993",
-      address: "Pine Street 987",
-      pinCode: "500001",
-      state: "Hyderabad",
-      country: "India",
-      accountNumber: "4567 8901 2345 6789",
-      accountHolder: "Lisa Anderson",
-      bankName: "Canara Bank",
-      ifsc: "CNRB0001234",
-    },
-    {
-      id: 8,
-      name: "Robert Taylor",
-      phone: "(555) 012-3456",
-      image: "https://randomuser.me/api/portraits/men/12.jpg",
-      role: "Specialist",
-      email: "robert@gmail.com",
-      dateOfBirth: "30-1-1987",
-      address: "Cedar Lane 012",
-      pinCode: "380001",
-      state: "Ahmedabad",
-      country: "India",
-      accountNumber: "5678 9012 3456 7890",
-      accountHolder: "Robert Taylor",
-      bankName: "Union Bank",
-      ifsc: "UBIN0001234",
-    },
-    {
-      id: 9,
-      name: "Jennifer Martinez",
-      phone: "(555) 345-6789",
-      image: "https://randomuser.me/api/portraits/women/78.jpg",
-      role: "Executive",
-      email: "jennifer@gmail.com",
-      dateOfBirth: "8-6-1991",
-      address: "Birch Road 345",
-      pinCode: "302001",
-      state: "Jaipur",
-      country: "India",
-      accountNumber: "6789 0123 4567 8901",
-      accountHolder: "Jennifer Martinez",
-      bankName: "Indian Bank",
-      ifsc: "IDIB0001234",
-    },
-    {
-      id: 10,
-      name: "Christopher Lee",
-      phone: "(555) 678-9012",
-      image: "https://randomuser.me/api/portraits/men/34.jpg",
-      role: "Technician",
-      email: "christopher@gmail.com",
-      dateOfBirth: "14-10-1989",
-      address: "Willow Street 678",
-      pinCode: "411001",
-      state: "Pune",
-      country: "India",
-      accountNumber: "7890 1234 5678 9012",
-      accountHolder: "Christopher Lee",
-      bankName: "Central Bank",
-      ifsc: "CBIN0001234",
-    },
-    // Adding more dummy data for pagination demo
-    ...Array.from({ length: 100 }, (_, i) => ({
-      id: 11 + i,
-      name: `User ${11 + i}`,
-      phone: `(555) ${String(Math.floor(Math.random() * 900) + 100)}-${String(Math.floor(Math.random() * 9000) + 1000)}`,
-      image: `https://randomuser.me/api/portraits/${i % 2 === 0 ? "women" : "men"}/${Math.floor(Math.random() * 99) + 1}.jpg`,
-      role: ["Developer", "Designer", "Manager", "Analyst", "Consultant"][Math.floor(Math.random() * 5)],
-      email: `user${11 + i}@gmail.com`,
-      dateOfBirth: `${Math.floor(Math.random() * 28) + 1}-${Math.floor(Math.random() * 12) + 1}-${Math.floor(Math.random() * 30) + 1990}`,
-      address: `Address ${11 + i}`,
-      pinCode: String(Math.floor(Math.random() * 900000) + 100000),
-      state: ["Delhi", "Mumbai", "Bangalore", "Chennai", "Kolkata"][Math.floor(Math.random() * 5)],
-      country: "India",
-      accountNumber: `${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 9000) + 1000}`,
-      accountHolder: `User ${11 + i}`,
-      bankName: ["SBI Bank", "HDFC Bank", "ICICI Bank", "Axis Bank", "PNB Bank"][Math.floor(Math.random() * 5)],
-      ifsc: `BANK${String(Math.floor(Math.random() * 900000) + 100000)}`,
-    })),
-  ]
+  // 🚀 Optimized API call with proper error handling
+  useEffect(() => {
+    const getAllUsers = async () => {
+      setUsersLoading(true)
+      setError(null)
 
-  // Filter contacts based on search term
-  const filteredContacts = useMemo(() => {
-    return contacts.filter(
-      (contact) =>
-        contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.phone.includes(searchTerm) ||
-        contact.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      try {
+        // 🔧 Fixed API endpoint - should be /users not /all-users
+        const response = await axios.get(`${import.meta.env.VITE_BACKEND_API}/api/admin/all-users`)
+
+        if (response.data.success) {
+          // 🔧 Transform API data to match component expectations
+          const transformedUsers = response.data.data.map((user, index) => ({
+            id: user._id || `user_${index}`,
+            name: user.fullName || "Unknown User",
+            phone: user.phone || "No phone",
+            image: user.profilePick || "/placeholder.svg?height=48&width=48",
+            role: "User", // Default role since API doesn't provide this
+            email: user.email || "No email",
+            dateOfBirth: user.dob || "Not provided",
+            address: user.address || "Not provided",
+            pinCode: user.pinCode || "Not provided",
+            state: user.state || "Not provided",
+            country: user.country || "Not provided",
+            accountNumber: "****" + (user.accountNumber?.slice(-4) || "0000"), // Mask account number for security
+            accountHolder: user.fullName || "Not provided",
+            bankName: "Not provided", // API doesn't have this field
+            ifsc: "Not provided", // API doesn't have this field
+            coinsEarned: user.coinsEarned || 0,
+            isPanVerified: user.isPanVerified || false,
+            isAadharVerified: user.isAadharVerified || false,
+            isPassbookVerified: user.isPassbookVerified || false,
+            panPhoto: user.panPhoto,
+            aadharPhoto: user.aadharPhoto,
+            passbookPhoto: user.passbookPhoto,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+          }))
+
+          setUsers(transformedUsers)
+          console.log("✅ Users loaded:", transformedUsers.length)
+        } else {
+          setError("Failed to fetch users from server")
+        }
+      } catch (err) {
+        console.error("❌ API Error:", err)
+        setError(err.response?.data?.message || "Network error occurred")
+      } finally {
+        setUsersLoading(false)
+      }
+    }
+
+    getAllUsers()
+  }, [])
+
+  // 🚀 Optimized search with useMemo
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm.trim()) return users
+
+    const term = searchTerm.toLowerCase()
+    return users.filter(
+      (user) =>
+        user.name.toLowerCase().includes(term) ||
+        user.phone.includes(searchTerm) ||
+        user.email.toLowerCase().includes(term),
     )
-  }, [searchTerm])
+  }, [users, searchTerm])
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredContacts.length / usersPerPage)
-  const currentContacts = filteredContacts.slice((currentPage - 1) * usersPerPage, currentPage * usersPerPage)
+  // 🚀 Optimized pagination
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage)
+  const currentContacts = useMemo(() => {
+    const startIndex = (currentPage - 1) * usersPerPage
+    return filteredUsers.slice(startIndex, startIndex + usersPerPage)
+  }, [filteredUsers, currentPage, usersPerPage])
 
-  const handleViewDetails = (contact) => {
+  // 🚀 Optimized callbacks with useCallback
+  const handleViewDetails = useCallback((contact) => {
     setIsLoading(true)
-    // Simulate loading
+    // Simulate loading for smooth UX
     setTimeout(() => {
       setSelectedUser(contact)
       setIsLoading(false)
-    }, 300)
-  }
+    }, 200)
+  }, [])
 
-  const handleCloseDetails = () => {
+  const handleCloseDetails = useCallback(() => {
     setSelectedUser(null)
-  }
+  }, [])
 
-  const handlePageChange = (page) => {
+  const handlePageChange = useCallback((page) => {
     setCurrentPage(page)
     setSelectedUser(null) // Close details when changing page
-  }
+  }, [])
 
-  const handleSearch = (e) => {
+  const handleSearch = useCallback((e) => {
     setSearchTerm(e.target.value)
     setCurrentPage(1) // Reset to first page when searching
     setSelectedUser(null) // Close details when searching
-  }
+  }, [])
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setSearchTerm("")
     setCurrentPage(1)
+  }, [])
+
+  // 🚀 Optimized document viewer
+  const handleViewDocument = useCallback((documentUrl, documentType) => {
+    if (documentUrl && documentUrl !== "Not provided") {
+      window.open(documentUrl, "_blank")
+    } else {
+      alert(`${documentType} not uploaded yet`)
+    }
+  }, [])
+
+  // 🚀 Loading state
+  if (usersLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#C3E8FF] to-white">
+        <div className="px-4 sm:px-6 lg:px-10 pt-7 pb-12 space-y-6">
+          <Header />
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading users...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 🚀 Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#C3E8FF] to-white">
+        <div className="px-4 sm:px-6 lg:px-10 pt-7 pb-12 space-y-6">
+          <Header />
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <div className="text-red-500 text-6xl mb-4">⚠️</div>
+              <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Users</h2>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -257,7 +182,7 @@ export default function Users() {
             <Link to="/">
               <IoIosArrowRoundBack size={35} className="mr-1 text-black" />
             </Link>
-            Registered Users
+            Registered Users ({filteredUsers.length})
           </h2>
 
           {/* Search bar */}
@@ -282,7 +207,7 @@ export default function Users() {
 
         {/* Results count */}
         <div className="text-sm text-gray-600">
-          Showing {currentContacts.length} of {filteredContacts.length} users
+          Showing {currentContacts.length} of {filteredUsers.length} users
           {searchTerm && ` for "${searchTerm}"`}
         </div>
 
@@ -303,10 +228,27 @@ export default function Users() {
                         src={contact.image || "/placeholder.svg"}
                         alt={contact.name}
                         className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                        loading="lazy"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-gray-800 truncate">{contact.name}</p>
                         <p className="text-xs text-gray-500 truncate">{contact.phone}</p>
+                        {/* 🚀 Added verification status indicators */}
+                        <div className="flex items-center space-x-2 mt-1">
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full ${
+                              contact.isPanVerified ? "bg-green-400" : "bg-gray-300"
+                            }`}
+                            title={`PAN ${contact.isPanVerified ? "Verified" : "Not Verified"}`}
+                          />
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full ${
+                              contact.isAadharVerified ? "bg-green-400" : "bg-gray-300"
+                            }`}
+                            title={`Aadhar ${contact.isAadharVerified ? "Verified" : "Not Verified"}`}
+                          />
+                          <span className="text-xs text-gray-400">{contact.coinsEarned} coins</span>
+                        </div>
                       </div>
                     </div>
                     <button
@@ -386,7 +328,7 @@ export default function Users() {
                     <h3 className="font-semibold text-gray-800">All Users</h3>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {filteredContacts.map((contact) => (
+                    {filteredUsers.map((contact) => (
                       <div
                         key={contact.id}
                         className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-200 ${
@@ -399,6 +341,7 @@ export default function Users() {
                             src={contact.image || "/placeholder.svg"}
                             alt={contact.name}
                             className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                            loading="lazy"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-800 truncate">{contact.name}</p>
@@ -427,11 +370,33 @@ export default function Users() {
                       />
                       <div>
                         <h3 className="text-lg font-semibold text-gray-800">{selectedUser.name}</h3>
-                        <p className="text-sm text-gray-500">{selectedUser.role}</p>
+                        <p className="text-sm text-gray-500">
+                          {selectedUser.role} • {selectedUser.coinsEarned} coins
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <button className="text-sm font-medium text-blue-600 hover:underline">History</button>
+                      {/* 🚀 Enhanced verification status */}
+                      <div className="flex space-x-1">
+                        <span
+                          className={`inline-block w-3 h-3 rounded-full ${
+                            selectedUser.isPanVerified ? "bg-green-400" : "bg-red-400"
+                          }`}
+                          title={`PAN ${selectedUser.isPanVerified ? "Verified" : "Not Verified"}`}
+                        />
+                        <span
+                          className={`inline-block w-3 h-3 rounded-full ${
+                            selectedUser.isAadharVerified ? "bg-green-400" : "bg-red-400"
+                          }`}
+                          title={`Aadhar ${selectedUser.isAadharVerified ? "Verified" : "Not Verified"}`}
+                        />
+                        <span
+                          className={`inline-block w-3 h-3 rounded-full ${
+                            selectedUser.isPassbookVerified ? "bg-green-400" : "bg-red-400"
+                          }`}
+                          title={`Passbook ${selectedUser.isPassbookVerified ? "Verified" : "Not Verified"}`}
+                        />
+                      </div>
                       <button
                         onClick={handleCloseDetails}
                         className="hidden lg:block p-2 hover:bg-gray-100 rounded-full"
@@ -451,7 +416,7 @@ export default function Users() {
                       <div className="space-y-3">
                         <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                           <span className="text-sm text-gray-600">Contact Number</span>
-                          <span className="text-sm font-medium text-gray-800">+91 78345 34343</span>
+                          <span className="text-sm font-medium text-gray-800">{selectedUser.phone}</span>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                           <span className="text-sm text-gray-600">Email Id</span>
@@ -502,12 +467,108 @@ export default function Users() {
                           <span className="text-sm text-gray-600">IFSC</span>
                           <span className="text-sm font-medium text-gray-800">{selectedUser.ifsc}</span>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* 🚀 Enhanced Documents Section */}
+                    <div>
+                      <h4 className="text-base font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+                        Documents
+                      </h4>
+                      <div className="space-y-3">
+                        {/* PAN Card */}
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                          <span className="text-sm text-gray-600">PassBook</span>
-                          <button className="flex items-center justify-center space-x-2 text-sm font-medium text-gray-800 bg-gray-100 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors duration-200 w-full sm:w-auto">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">PAN Card</span>
+                            <span
+                              className={`inline-block w-2 h-2 rounded-full ${
+                                selectedUser.isPanVerified ? "bg-green-400" : "bg-red-400"
+                              }`}
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleViewDocument(selectedUser.panPhoto, "PAN Card")}
+                            className={`flex items-center justify-center space-x-2 text-sm font-medium px-4 py-2 rounded-md transition-colors duration-200 w-full sm:w-auto ${
+                              selectedUser.panPhoto && selectedUser.panPhoto !== "Not provided"
+                                ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
+                                : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                            }`}
+                            disabled={!selectedUser.panPhoto || selectedUser.panPhoto === "Not provided"}
+                          >
                             <span>👁</span>
                             <span>View</span>
                           </button>
+                        </div>
+
+                        {/* Aadhar Card */}
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Aadhar Card</span>
+                            <span
+                              className={`inline-block w-2 h-2 rounded-full ${
+                                selectedUser.isAadharVerified ? "bg-green-400" : "bg-red-400"
+                              }`}
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleViewDocument(selectedUser.aadharPhoto, "Aadhar Card")}
+                            className={`flex items-center justify-center space-x-2 text-sm font-medium px-4 py-2 rounded-md transition-colors duration-200 w-full sm:w-auto ${
+                              selectedUser.aadharPhoto && selectedUser.aadharPhoto !== "Not provided"
+                                ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
+                                : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                            }`}
+                            disabled={!selectedUser.aadharPhoto || selectedUser.aadharPhoto === "Not provided"}
+                          >
+                            <span>👁</span>
+                            <span>View</span>
+                          </button>
+                        </div>
+
+                        {/* Passbook */}
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">PassBook</span>
+                            <span
+                              className={`inline-block w-2 h-2 rounded-full ${
+                                selectedUser.isPassbookVerified ? "bg-green-400" : "bg-red-400"
+                              }`}
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleViewDocument(selectedUser.passbookPhoto, "Passbook")}
+                            className={`flex items-center justify-center space-x-2 text-sm font-medium px-4 py-2 rounded-md transition-colors duration-200 w-full sm:w-auto ${
+                              selectedUser.passbookPhoto && selectedUser.passbookPhoto !== "Not provided"
+                                ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
+                                : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                            }`}
+                            disabled={!selectedUser.passbookPhoto || selectedUser.passbookPhoto === "Not provided"}
+                          >
+                            <span>👁</span>
+                            <span>View</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 🚀 Additional User Info */}
+                    <div>
+                      <h4 className="text-base font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+                        Account Information
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                          <span className="text-sm text-gray-600">User ID</span>
+                          <span className="text-sm font-medium text-gray-800 font-mono">{selectedUser.id}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                          <span className="text-sm text-gray-600">Coins Earned</span>
+                          <span className="text-sm font-medium text-green-600">{selectedUser.coinsEarned} coins</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                          <span className="text-sm text-gray-600">Member Since</span>
+                          <span className="text-sm font-medium text-gray-800">
+                            {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : "Unknown"}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -519,10 +580,14 @@ export default function Users() {
         </div>
 
         {/* No results message */}
-        {filteredContacts.length === 0 && (
+        {filteredUsers.length === 0 && !usersLoading && (
           <div className="text-center py-12">
-            <div className="text-gray-500 text-lg mb-2">No users found</div>
-            <div className="text-gray-400 text-sm">Try adjusting your search terms</div>
+            <div className="text-gray-500 text-lg mb-2">
+              {searchTerm ? `No users found for "${searchTerm}"` : "No users found"}
+            </div>
+            <div className="text-gray-400 text-sm">
+              {searchTerm ? "Try adjusting your search terms" : "No users have been registered yet"}
+            </div>
           </div>
         )}
       </div>

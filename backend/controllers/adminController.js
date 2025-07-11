@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import Category from "../models/Category.js";
 import cloudinary from "../helpers/cloudinary/cloudinary.js";
+import User from "../models/User.js";
 
 export const login = (req, res) => {
   const { emailOrPhone, password } = req.body;
@@ -116,6 +117,27 @@ export const deleteCategory = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete Category Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// 🚀 NEW: Get All Users (Latest First)
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find()
+      .select("-password -__v") // Exclude password and version key
+      .sort({ createdAt: -1 }); // Latest first
+
+    res.status(200).json({
+      success: true,
+      message: "Users fetched successfully",
+      data: users,
+    });
+  } catch (error) {
+    console.error("Get All Users Error:", error);
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
