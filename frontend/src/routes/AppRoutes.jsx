@@ -8,7 +8,7 @@ import Category from "../pages/category/Category";
 import Promotion from "../pages/promotion/Promotion";
 import Offer from "../pages/offer/Offer";
 import Users from "../pages/users/Users";
-import Kyc from "../pages/kycRequests/kyc";
+import KYC from "../pages/kycRequests/kyc";
 
 const AppRoutes = () => {
   return (
@@ -65,7 +65,7 @@ const AppRoutes = () => {
         path="/kyc-requests"
         element={
           <ProtectedRoute>
-            <Kyc />
+            <KYC />
           </ProtectedRoute>
         }
       />
