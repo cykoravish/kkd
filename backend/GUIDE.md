@@ -29,11 +29,18 @@
 | `POST` | `/api/user/upload-aadhar`   | Upload Aadhar card photo   | ✅ Yes        |
 | `POST` | `/api/user/upload-passbook` | Upload bank passbook photo | ✅ Yes        |
 
-### 📂 Category APIs
+### 📂 Category & Content APIs
 
 | Method | Endpoint                   | Description        | Auth Required |
 | :----- | :------------------------- | :----------------- | :------------ |
 | `GET`  | `/api/user/get-categories` | Get all categories | ✅ Yes        |
+| `GET`  | `/api/user/get-promotions` | Get all promotions | ✅ Yes        |
+
+### 🎯 QR Code Scanning API
+
+| Method | Endpoint             | Description           | Auth Required |
+| :----- | :------------------- | :-------------------- | :------------ |
+| `POST` | `/api/user/scan-qr`  | Scan QR code for coins| ✅ Yes        |
 
 ---
 
@@ -336,7 +343,7 @@ Content-Type: application/json
     "kycRejectionReason": "",
     "isProfileComplete": true,
 
-    "productsQrScanned": ["QR123", "QR456"],
+    "productsQrScanned": ["PROD_ABC123", "PROD_XYZ789"],
     "createdAt": "2023-07-01T10:30:00.000Z",
     "updatedAt": "2023-07-15T14:20:00.000Z"
   }
@@ -460,6 +467,10 @@ void loadUserProfile() async {
     if (user['kycStatus'] == 'rejected') {
       print('KYC Rejection Reason: ${user['kycRejectionReason']}');
     }
+
+    // Check scanned products
+    List scannedProducts = user['productsQrScanned'] ?? [];
+    print('Scanned Products: ${scannedProducts.length}');
   } else {
     print('Error: ${result['message']}');
   }
@@ -501,6 +512,7 @@ Content-Type: multipart/form-data (for file upload)
 - `userId`, `email`, `phone`, `password`, `coinsEarned`
 - `panPhoto`, `aadharPhoto`, `passbookPhoto` (use separate upload endpoints)
 - All verification status fields and KYC fields
+- `productsQrScanned` (managed by QR scanning system)
 
 #### Option A: JSON Update (Text fields only)
 
@@ -1191,7 +1203,7 @@ Future<Map<String, dynamic>> uploadPassbookPhoto(File passbookImage) async {
 
 ---
 
-## 📂 Category APIs
+## 📂 Category & Content APIs
 
 ### 9️⃣ Get All Categories - `GET` Request
 
@@ -1293,6 +1305,599 @@ void loadCategories() async {
 
 ---
 
+### 🔟 Get All Promotions - `GET` Request
+
+**🌐 Endpoint:** `https://kkd-backend-api.onrender.com/api/user/get-promotions`  
+**📝 Method:** `GET`  
+**🔒 Authentication:** Required (Bearer Token)
+
+**📤 Request Headers:**
+
+```
+Authorization: Bearer <your_token_here>
+Content-Type: application/json
+```
+
+**✅ Success Response:**
+
+```json
+{
+  "success": true,
+  "message": "Promotions fetched successfully",
+  "data": [
+    {
+      "_id": "64a1b2c3d4e5f6789012348",
+      "promotionName": "Summer Sale",
+      "promotionImage": "https://res.cloudinary.com/your-cloud/image/upload/v1234567890/kkd/promotions/summer-sale.jpg",
+      "createdAt": "2023-07-01T12:00:00.000Z"
+    },
+    {
+      "_id": "64a1b2c3d4e5f6789012349",
+      "promotionName": "Black Friday",
+      "promotionImage": "https://res.cloudinary.com/your-cloud/image/upload/v1234567890/kkd/promotions/black-friday.jpg",
+      "createdAt": "2023-07-01T12:30:00.000Z"
+    }
+  ]
+}
+```
+
+**📱 Flutter Example:**
+
+```dart
+Future<Map<String, dynamic>> getPromotions() async {
+  try {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('auth_token');
+
+    if (token == null) {
+      return {'success': false, 'message': 'No token found'};
+    }
+
+    final response = await http.get(
+      Uri.parse('https://kkd-backend-api.onrender.com/api/user/get-promotions'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && data['success']) {
+      print('✅ Promotions fetched successfully');
+      return data;
+    } else {
+      print('❌ Failed to get promotions: ${data['message']}');
+      return data;
+    }
+  } catch (e) {
+    print('🌐 Network error: $e');
+    return {'success': false, 'message': 'Network error occurred'};
+  }
+}
+
+// Usage Example:
+void loadPromotions() async {
+  final result = await getPromotions();
+
+  if (result['success']) {
+    List promotions = result['data'];
+
+    for (var promotion in promotions) {
+      print('Promotion: ${promotion['promotionName']}');
+      print('Image: ${promotion['promotionImage']}');
+      print('---');
+    }
+  } else {
+    print('Error: ${result['message']}');
+  }
+}
+```
+
+---
+
+## 🎯 QR Code Scanning API
+
+### 1️⃣1️⃣ Scan QR Code for Coins - `POST` Request
+
+**🌐 Endpoint:** `https://kkd-backend-api.onrender.com/api/user/scan-qr`  
+**📝 Method:** `POST`  
+**🔒 Authentication:** Required (Bearer Token)
+
+**📤 Request Headers:**
+
+```
+Authorization: Bearer <your_token_here>
+Content-Type: application/json
+```
+
+**📤 Request Body:**
+
+```json
+{
+  "qrData": "{\"productId\":\"PROD_ABC123XYZ456\",\"type\":\"PRODUCT_QR\",\"timestamp\":1690123456789,\"hash\":\"abc123def456\"}"
+}
+```
+
+> **💡 Note:** `qrData` should be the complete JSON string read from the QR code
+
+**✅ Success Response:**
+
+```json
+{
+  "success": true,
+  "message": "Congratulations! You've earned 50 coins for scanning iPhone 15 Pro.",
+  "data": {
+    "productName": "iPhone 15 Pro",
+    "coinsEarned": 50,
+    "totalCoins": 200,
+    "scannedAt": "2023-07-15T14:30:00.000Z"
+  }
+}
+```
+
+**❌ Error Responses:**
+
+```json
+{
+  "success": false,
+  "message": "Invalid QR code. This is not a valid product QR."
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "This QR code has already been used."
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "You have already scanned this product."
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "This QR code is currently inactive."
+}
+```
+
+**📱 Flutter Implementation:**
+
+### Required Packages for QR Scanning
+
+Add these to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  qr_code_scanner: ^1.0.1  # For QR code scanning
+  permission_handler: ^11.0.1  # For camera permissions
+```
+
+### Complete QR Scanner Implementation
+
+```dart
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+class QRScannerScreen extends StatefulWidget {
+  @override
+  _QRScannerScreenState createState() => _QRScannerScreenState();
+}
+
+class _QRScannerScreenState extends State<QRScannerScreen> {
+  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
+  QRViewController? controller;
+  bool isScanning = true;
+  bool isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestCameraPermission();
+  }
+
+  Future<void> _requestCameraPermission() async {
+    final status = await Permission.camera.request();
+    if (status != PermissionStatus.granted) {
+      // Handle permission denied
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Camera permission is required to scan QR codes'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Scan QR Code'),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.flash_on),
+            onPressed: () async {
+              await controller?.toggleFlash();
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Stack(
+              children: [
+                QRView(
+                  key: qrKey,
+                  onQRViewCreated: _onQRViewCreated,
+                  overlay: QrScannerOverlayShape(
+                    borderColor: Colors.green,
+                    borderRadius: 10,
+                    borderLength: 30,
+                    borderWidth: 10,
+                    cutOutSize: 250,
+                  ),
+                ),
+                if (isProcessing)
+                  Container(
+                    color: Colors.black54,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(color: Colors.white),
+                          SizedBox(height: 16),
+                          Text(
+                            'Processing QR Code...',
+                            style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.qr_code_scanner,
+                    size: 48,
+                    color: Colors.green,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Point your camera at a QR code',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Scan product QR codes to earn coins!',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onQRViewCreated(QRViewController controller) {
+    setState(() {
+      this.controller = controller;
+    });
+
+    controller.scannedDataStream.listen((scanData) {
+      if (isScanning && !isProcessing && scanData.code != null) {
+        _handleQRScan(scanData.code!);
+      }
+    });
+  }
+
+  Future<void> _handleQRScan(String qrData) async {
+    if (isProcessing) return;
+
+    setState(() {
+      isProcessing = true;
+      isScanning = false;
+    });
+
+    // Pause camera
+    await controller?.pauseCamera();
+
+    try {
+      // Validate QR data format
+      Map<String, dynamic> qrJson;
+      try {
+        qrJson = jsonDecode(qrData);
+      } catch (e) {
+        _showErrorDialog('Invalid QR Code', 'This QR code is not in the correct format.');
+        return;
+      }
+
+      // Check if it's a product QR
+      if (qrJson['type'] != 'PRODUCT_QR' || qrJson['productId'] == null) {
+        _showErrorDialog('Invalid QR Code', 'This is not a valid product QR code.');
+        return;
+      }
+
+      // Send to API
+      final result = await _scanQRCode(qrData);
+
+      if (result['success']) {
+        _showSuccessDialog(result);
+      } else {
+        _showErrorDialog('Scan Failed', result['message'] ?? 'Unknown error occurred');
+      }
+    } catch (e) {
+      _showErrorDialog('Error', 'Failed to process QR code. Please try again.');
+    } finally {
+      setState(() {
+        isProcessing = false;
+      });
+    }
+  }
+
+  Future<Map<String, dynamic>> _scanQRCode(String qrData) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('auth_token');
+
+      if (token == null) {
+        return {'success': false, 'message': 'Please login to scan QR codes'};
+      }
+
+      final response = await http.post(
+        Uri.parse('https://kkd-backend-api.onrender.com/api/user/scan-qr'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'qrData': qrData}),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error occurred'};
+    }
+  }
+
+  void _showSuccessDialog(Map<String, dynamic> result) {
+    final data = result['data'];
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.celebration, color: Colors.green, size: 28),
+            SizedBox(width: 8),
+            Text('Success! 🎉'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              result['message'] ?? 'QR code scanned successfully!',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Product:', style: TextStyle(fontWeight: FontWeight.w500)),
+                      Text(data['productName'] ?? 'Unknown'),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Coins Earned:', style: TextStyle(fontWeight: FontWeight.w500)),
+                      Text(
+                        '+${data['coinsEarned']} 🪙',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total Coins:', style: TextStyle(fontWeight: FontWeight.w500)),
+                      Text(
+                        '${data['totalCoins']} 🪙',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back to previous screen
+            },
+            child: Text('Done'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              _resumeScanning(); // Continue scanning
+            },
+            child: Text('Scan Another'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error, color: Colors.red, size: 28),
+            SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back to previous screen
+            },
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              _resumeScanning(); // Try again
+            },
+            child: Text('Try Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _resumeScanning() {
+    setState(() {
+      isScanning = true;
+      isProcessing = false;
+    });
+    controller?.resumeCamera();
+  }
+
+  @override
+  void dispose() {
+    controller?.dispose();
+    super.dispose();
+  }
+}
+```
+
+### Usage in Your App
+
+```dart
+// Add this to your main app screen or navigation
+ElevatedButton(
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => QRScannerScreen()),
+    );
+  },
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.qr_code_scanner),
+      SizedBox(width: 8),
+      Text('Scan QR Code'),
+    ],
+  ),
+)
+```
+
+### QR Code Data Structure
+
+The QR codes generated by the admin contain JSON data in this format:
+
+```json
+{
+  "productId": "PROD_ABC123XYZ456",
+  "type": "PRODUCT_QR",
+  "timestamp": 1690123456789,
+  "hash": "abc123def456"
+}
+```
+
+**🔍 QR Code Validation:**
+
+- ✅ Must be valid JSON format
+- ✅ Must have `type: "PRODUCT_QR"`
+- ✅ Must have valid `productId`
+- ✅ Product must exist and be active
+- ✅ User must not have scanned this product before
+- ✅ QR code must not be already used by another user
+
+**🎯 QR Scanning Flow:**
+
+1. **User opens QR scanner** → Camera permission requested
+2. **User points camera at QR code** → QR data automatically detected
+3. **App validates QR format** → Checks JSON structure and type
+4. **App sends to API** → `/api/user/scan-qr` with QR data
+5. **Backend validates** → Product exists, not scanned, user eligible
+6. **Coins awarded** → User's coin balance updated
+7. **Success shown** → User sees earned coins and total
+
+**💡 QR Scanning Tips:**
+
+- **Camera Permission**: Always request camera permission before opening scanner
+- **Good Lighting**: Ensure adequate lighting for better QR detection
+- **Steady Hand**: Hold device steady for quick detection
+- **Distance**: Keep QR code within the scanning frame
+- **One-Time Use**: Each QR code can only be scanned once per user
+- **Network Required**: Internet connection needed for validation
+
+---
+
 ## 📱 Complete Flutter Setup
 
 ### Required Packages
@@ -1303,10 +1908,21 @@ Add these to your `pubspec.yaml`:
 dependencies:
   flutter:
     sdk: flutter
+  # Core HTTP & Storage
   http: ^1.1.0 # For API calls
   shared_preferences: ^2.2.2 # For token storage
+  
+  # Image Handling
   image_picker: ^1.0.4 # For image selection
   cached_network_image: ^3.3.0 # For image caching
+  
+  # QR Code Scanning
+  qr_code_scanner: ^1.0.1 # For QR scanning
+  permission_handler: ^11.0.1 # For camera permissions
+  
+  # UI & UX
+  flutter_spinkit: ^5.2.0 # Loading animations
+  fluttertoast: ^8.2.4 # Toast messages
 
 dev_dependencies:
   flutter_test:
@@ -1326,6 +1942,7 @@ Create a file `lib/services/api_service.dart`:
 ```dart
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -1558,7 +2175,7 @@ class ApiService {
     }
   }
 
-  // 📂 Category APIs
+  // 📂 Category & Content APIs
   Future<Map<String, dynamic>> getCategories() async {
     try {
       String? token = await getToken();
@@ -1572,6 +2189,50 @@ class ApiService {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPromotions() async {
+    try {
+      String? token = await getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'No token found'};
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/user/get-promotions'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // 🎯 QR Code Scanning API
+  Future<Map<String, dynamic>> scanQRCode(String qrData) async {
+    try {
+      String? token = await getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'No token found'};
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/user/scan-qr'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'qrData': qrData}),
       );
 
       return jsonDecode(response.body);
@@ -1777,7 +2438,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Profile')),
+      appBar: AppBar(
+        title: Text('Profile'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.qr_code_scanner),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => QRScannerScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: userData != null
           ? SingleChildScrollView(
               padding: EdgeInsets.all(16),
@@ -1796,8 +2470,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Text('Name: ${userData!['fullName']}'),
                           Text('Email: ${userData!['email']}'),
                           Text('Phone: ${userData!['phone']}'),
-                          Text('Coins: ${userData!['coinsEarned']}'),
+                          Text('Coins: ${userData!['coinsEarned']} 🪙'),
                           Text('User ID: ${userData!['userId']}'),
+                          Text('Products Scanned: ${(userData!['productsQrScanned'] as List?)?.length ?? 0}'),
                         ],
                       ),
                     ),
@@ -1848,6 +2523,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: Icon(
                         userData!['isProfileComplete'] == true ? Icons.check_circle : Icons.incomplete_circle,
                         color: userData!['isProfileComplete'] == true ? Colors.green : Colors.red,
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 16),
+
+                  // QR Scanner Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => QRScannerScreen()),
+                        );
+                      },
+                      icon: Icon(Icons.qr_code_scanner),
+                      label: Text('Scan QR Code to Earn Coins'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
@@ -1999,6 +2696,28 @@ Future<void> handleApiCall() async {
    - ✅ Handle upload failures gracefully
    - ✅ Provide retry options
 
+### 🎯 QR Code Scanning Best Practices
+
+1. **Camera Permissions**
+
+   - ✅ Request camera permission before opening scanner
+   - ✅ Handle permission denied gracefully
+   - ✅ Provide clear instructions to users
+
+2. **QR Code Validation**
+
+   - ✅ Validate QR data format before sending to API
+   - ✅ Check for required fields (productId, type)
+   - ✅ Handle invalid QR codes gracefully
+   - ✅ Show clear error messages
+
+3. **User Experience**
+   - ✅ Show scanning instructions
+   - ✅ Provide visual feedback during scanning
+   - ✅ Handle success/error states properly
+   - ✅ Allow users to scan multiple codes
+   - ✅ Show coin earnings prominently
+
 ### 🚀 NEW: KYC & Verification System
 
 1. **Status-Based Verification**
@@ -2062,6 +2781,13 @@ Future<void> handleApiCall() async {
    - ✅ Display rejection reasons clearly
    - ✅ Provide guidance for resubmission
 
+5. **🎯 NEW: QR Scanning User Experience**
+   - ✅ Provide clear scanning instructions
+   - ✅ Show real-time feedback during scanning
+   - ✅ Display coin earnings prominently
+   - ✅ Handle duplicate scans gracefully
+   - ✅ Allow continuous scanning workflow
+
 ---
 
 ## 🔗 Testing & Resources
@@ -2090,6 +2816,10 @@ dependencies:
   cached_network_image: ^3.3.0 # Image caching
   image: ^4.1.3 # Image processing
 
+  # QR Code Scanning
+  qr_code_scanner: ^1.0.1 # QR scanning
+  permission_handler: ^11.0.1 # Camera permissions
+
   # UI & UX
   flutter_spinkit: ^5.2.0 # Loading animations
   fluttertoast: ^8.2.4 # Toast messages
@@ -2103,7 +2833,7 @@ dependencies:
 
 ```bash
 # Add required packages
-flutter pub add http shared_preferences image_picker cached_network_image
+flutter pub add http shared_preferences image_picker cached_network_image qr_code_scanner permission_handler
 
 # Get packages
 flutter pub get
@@ -2130,10 +2860,30 @@ flutter run
 - [ ] 🚀 **NEW:** Handle KYC request notifications
 - [ ] 🚀 **NEW:** Show document rejection reasons
 - [ ] 🚀 **NEW:** Add profile completion tracking
+- [ ] 🎯 **NEW:** Implement QR code scanning functionality
+- [ ] 🎯 **NEW:** Add camera permissions handling
+- [ ] 🎯 **NEW:** Test QR scanning with real products
+- [ ] 🎯 **NEW:** Handle QR scanning success/error states
 
 ---
 
 ## 🆕 What's New in This Version
+
+### ✅ **QR Code Scanning System**
+
+- Complete QR code scanning implementation with camera integration
+- Real-time QR validation and coin earning system
+- Product-based QR codes with unique identifiers
+- One-time use QR codes per user per product
+- Comprehensive error handling for invalid/used QR codes
+
+### ✅ **Enhanced Mobile Integration**
+
+- Complete Flutter QR scanner implementation
+- Camera permission handling
+- Real-time QR detection and processing
+- Success/error dialog management
+- Continuous scanning workflow
 
 ### ✅ **Status-Based Verification System**
 
@@ -2148,18 +2898,25 @@ flutter run
 - KYC request date and approval date tracking
 - KYC rejection reasons
 
+### ✅ **Promotions API**
+
+- New endpoint to fetch promotional content
+- Support for promotional banners and offers
+- Easy integration with mobile app UI
+
 ### ✅ **Enhanced API Responses**
 
 - Added `kycRequestCreated` flag in responses
 - Enhanced success messages with KYC information
-- More detailed user profile data
+- More detailed user profile data including scanned products
 
 ### ✅ **Improved Flutter Integration**
 
-- Updated API service class with new fields
+- Updated API service class with QR scanning support
 - Added helper functions for status display
 - Enhanced error handling for new fields
 - Better UI examples for verification status
+- Complete QR scanner screen implementation
 
 ---
 
@@ -2167,9 +2924,22 @@ flutter run
 
 **Happy Coding! 🚀**
 
-_This documentation covers all user APIs for the KKD mobile app with the latest KYC and verification system updates. For any issues or questions, please refer to the Postman collection or contact the development team._
+_This documentation covers all user APIs for the KKD mobile app including the complete QR code scanning system, latest KYC and verification system updates, and comprehensive Flutter integration examples. For any issues or questions, please refer to the Postman collection or contact the development team._
 
 ---
 
 **📞 Support:** For technical support or API issues, please contact the development team.  
-**🔄 Updates:** This documentation will be updated as new features are added to the API.
+**🔄 Updates:** This documentation will be updated as new features are added to the API.  
+**🎯 QR Testing:** Use the admin panel to create products and test QR scanning functionality.
+```
+
+This updated GUIDE.md file now includes:
+
+1. **Complete QR Code Scanning Implementation** - Full Flutter integration with camera permissions, real-time scanning, and error handling
+2. **All Recent API Updates** - Including promotions API, enhanced user profile data, and QR scanning endpoints
+3. **Comprehensive Flutter Examples** - Complete code examples for all APIs including the QR scanner
+4. **Enhanced Documentation** - Better organization, more detailed explanations, and user-friendly formatting
+5. **Updated Checklists** - Including all new features and requirements
+6. **Best Practices** - Security, UX, and performance guidelines for mobile app development
+
+The guide is now complete and ready for your Flutter developers to implement the full KKD mobile application with QR scanning functionality!

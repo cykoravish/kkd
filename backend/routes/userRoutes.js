@@ -12,7 +12,13 @@ import {
 import { authenticateToken } from "../middlewares/userAuthMiddleware.js";
 import { getAllCategories } from "../controllers/adminController.js";
 import uploadProfile from "../middlewares/uploads/profile.js";
-import { uploadPan, uploadAadhar, uploadPassbook } from "../middlewares/uploads/documents.js";
+import {
+  uploadPan,
+  uploadAadhar,
+  uploadPassbook,
+} from "../middlewares/uploads/documents.js";
+import { getAllPromotions } from "../controllers/promotionController.js";
+import { scanProductQR } from "../controllers/productController.js";
 
 const userRouter = express.Router();
 
@@ -23,14 +29,38 @@ userRouter.post("/login", userLogin);
 // Protected routes
 userRouter.get("/get-user", authenticateToken, getUser);
 userRouter.get("/get-categories", authenticateToken, getAllCategories);
+userRouter.get("/get-promotions", authenticateToken, getAllPromotions);
 
 // Profile update routes
-userRouter.put("/update-profile", authenticateToken, uploadProfile.single("profilePick"), updateProfile);
-userRouter.put("/update-password", authenticateToken, updatePassword)
+userRouter.put(
+  "/update-profile",
+  authenticateToken,
+  uploadProfile.single("profilePick"),
+  updateProfile
+);
+userRouter.put("/update-password", authenticateToken, updatePassword);
 
 // Document upload routes
-userRouter.post("/upload-pan", authenticateToken, uploadPan.single("panPhoto"), uploadPanPhoto)
-userRouter.post("/upload-aadhar", authenticateToken, uploadAadhar.single("aadharPhoto"), uploadAadharPhoto)
-userRouter.post("/upload-passbook", authenticateToken, uploadPassbook.single("passbookPhoto"), uploadPassbookPhoto)
+userRouter.post(
+  "/upload-pan",
+  authenticateToken,
+  uploadPan.single("panPhoto"),
+  uploadPanPhoto
+);
+userRouter.post(
+  "/upload-aadhar",
+  authenticateToken,
+  uploadAadhar.single("aadharPhoto"),
+  uploadAadharPhoto
+);
+userRouter.post(
+  "/upload-passbook",
+  authenticateToken,
+  uploadPassbook.single("passbookPhoto"),
+  uploadPassbookPhoto
+);
+
+// QR Scan Route
+userRouter.post("/scan-qr", authenticateToken, scanProductQR)
 
 export default userRouter;

@@ -5,12 +5,19 @@ import { Link } from "react-router-dom";
 import Header from "../../components/header/Header";
 import { IoMdClose } from "react-icons/io";
 import { ChevronRight } from "lucide-react";
+import { api } from "../../helpers/api/api";
 
 export default function Home() {
-  const [dashboardStats] = useState([
+  const exploreRef = useRef(null);
+  const checkIdRef = useRef(null);
+
+  const [showExploreAllPopup, setShowExploreAllPopup] = useState(false);
+  const [showIdPopup, setShowIdPopup] = useState(false);
+
+  const [dashboardStats, setDashboardStats] = useState([
     {
       title: "TOTAL USER",
-      count: "10,000",
+      count: "Loading...",
       link: "/users",
     },
     {
@@ -20,7 +27,7 @@ export default function Home() {
     },
     {
       title: "KYC REQUEST",
-      count: "13",
+      count: "Loading...",
       link: "/kyc-requests",
     },
     {
@@ -29,6 +36,89 @@ export default function Home() {
       link: "/withdrawal-requests",
     },
   ]);
+
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setIsLoadingStats(true);
+
+      // Fetch users count and KYC stats in parallel
+      const [usersResponse, kycStatsResponse] = await Promise.all([
+        api.get("/api/admin/all-users"),
+        api.get("/api/admin/kyc-stats"),
+      ]);
+
+      let totalUsers = 0;
+      let pendingKYC = 0;
+
+      // Get total users count
+      if (usersResponse.data.success) {
+        totalUsers = usersResponse.data.data.length;
+      }
+
+      // Get pending KYC requests count
+      if (kycStatsResponse.data.success) {
+        pendingKYC = kycStatsResponse.data.data.pending || 0;
+      }
+
+      // Update dashboard stats with real data
+      setDashboardStats([
+        {
+          title: "TOTAL USER",
+          count: totalUsers.toLocaleString(), // Format with commas
+          link: "/users",
+        },
+        {
+          title: "TOTAL PRODUCT",
+          count: "230", // Keep static for now
+          link: "/products",
+        },
+        {
+          title: "KYC REQUEST",
+          count: pendingKYC.toString(),
+          link: "/kyc-requests",
+        },
+        {
+          title: "WITHDRAWAL REQUEST",
+          count: "100", // Keep static for now
+          link: "/withdrawal-requests",
+        },
+      ]);
+
+      console.log("✅ Dashboard stats loaded:", { totalUsers, pendingKYC });
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (error) {
+      console.error("❌ Error fetching dashboard stats:", error);
+
+      // Set error state for stats
+      setDashboardStats([
+        {
+          title: "TOTAL USER",
+          count: "Error",
+          link: "/users",
+        },
+        {
+          title: "TOTAL PRODUCT",
+          count: "230",
+          link: "/products",
+        },
+        {
+          title: "KYC REQUEST",
+          count: "Error",
+          link: "/kyc-requests",
+        },
+        {
+          title: "WITHDRAWAL REQUEST",
+          count: "100",
+          link: "/withdrawal-requests",
+        },
+      ]);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   const [transactions] = useState([
     {
@@ -78,15 +168,12 @@ export default function Home() {
     },
     // add more as needed
   ]);
-  const [showExploreAllPopup, setShowExploreAllPopup] = useState(false);
-  const [showIdPopup, setShowIdPopup] = useState(false);
-  const [productId, setProductId] = useState("");
 
-  const exploreRef = useRef(null);
-  const checkIdRef = useRef(null);
+  const [productId, setProductId] = useState("");
 
   // ✅ close popup on outside click
   useEffect(() => {
+    fetchDashboardStats();
     const handleClickOutside = (event) => {
       if (
         showExploreAllPopup &&
@@ -114,9 +201,24 @@ export default function Home() {
 
       {/* Welcome & Actions */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-black">
-          Welcome back, Admin!
-        </h1>
+        <div className="flex gap-2 items-center">
+          <h1 className="text-2xl font-semibold text-black">
+            Welcome back, Admin!
+          </h1>
+          <button
+            onClick={fetchDashboardStats}
+            disabled={isLoadingStats}
+            className="text-sm px-3 py-1 border border-gray-300 rounded-md text-gray-600 hover:text-blue-600 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Refresh dashboard stats"
+          >
+            {isLoadingStats ? "🔄 Refreshing..." : "↻ Refresh"}
+          </button>
+          {lastUpdated && (
+            <span className="text-xs text-gray-500">
+              Last updated: {lastUpdated}
+            </span>
+          )}
+        </div>
         <div className="flex gap-8">
           <button
             onClick={() => setShowIdPopup(true)}
@@ -142,14 +244,35 @@ export default function Home() {
             className="bg-gradient-to-br from-[#FFFDED] to-[#DFE2F6] rounded-2xl shadow p-5 flex flex-col space-y-3"
           >
             <div className="flex items-center">
-              <img src={profileIcon} alt="profileIcon" className="w-10 h-10" />
+              <img
+                src={profileIcon || "/placeholder.svg"}
+                alt="profileIcon"
+                className="w-10 h-10"
+              />
             </div>
             <h2 className="text-black text-sm font-medium uppercase tracking-wide">
               {item.title}
             </h2>
-            <p className="text-4xl font-bold text-black">{item.count}</p>
+            <p
+              className={`text-4xl font-bold text-black ${
+                isLoadingStats &&
+                (item.count === "Loading..." || item.count === "Error")
+                  ? "animate-pulse"
+                  : ""
+              }`}
+            >
+              {item.count}
+            </p>
             <div className="flex justify-end">
-              <Link to={item.link} className="text-sm text-black font-medium hover:underline">
+              <Link
+                to={item.link}
+                className={`text-sm text-black font-medium hover:underline ${
+                  isLoadingStats &&
+                  (item.count === "Loading..." || item.count === "Error")
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }`}
+              >
                 View Details
               </Link>
             </div>

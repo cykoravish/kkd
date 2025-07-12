@@ -9,6 +9,8 @@ import Promotion from "../pages/promotion/Promotion";
 import Offer from "../pages/offer/Offer";
 import Users from "../pages/users/Users";
 import KYC from "../pages/kycRequests/Kyc";
+import Products from "../pages/products/Products";
+import QRScanner from "../pages/qrTest/QRScanner";
 
 const AppRoutes = () => {
   return (
@@ -66,6 +68,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <KYC />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/products"
+        element={
+          <ProtectedRoute>
+            <Products />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/qr-scanner"
+        element={
+          <ProtectedRoute>
+            <QRScanner />
           </ProtectedRoute>
         }
       />
