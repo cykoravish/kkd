@@ -445,6 +445,7 @@ export const uploadAadharPhoto = async (req, res) => {
 
 // 🚀 UPDATED: Upload Passbook Photo with Status
 export const uploadPassbookPhoto = async (req, res) => {
+  console.log("uplaod passbook running")
   try {
     const userId = req.user.userId
 

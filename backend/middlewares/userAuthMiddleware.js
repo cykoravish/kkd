@@ -12,7 +12,7 @@ export const authenticateToken = (req, res, next) => {
     if (err) {
       return res.status(403).json({ success: false, message: "Invalid or expired token" });
     }
-    req.user = decoded;  // userId will be accessible as req.user.userId
+    req.user = decoded;
     next();
   });
 };

@@ -22,7 +22,7 @@ export default function Home() {
     },
     {
       title: "TOTAL PRODUCT",
-      count: "230",
+      count: "Loading...",
       link: "/products",
     },
     {
@@ -32,7 +32,7 @@ export default function Home() {
     },
     {
       title: "WITHDRAWAL REQUEST",
-      count: "100",
+      count: "Loading...",
       link: "/withdrawal-requests",
     },
   ]);
@@ -40,18 +40,36 @@ export default function Home() {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
 
+  // 🚀 NEW: Real transaction history state
+  const [transactions, setTransactions] = useState([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+
+  // 🚀 NEW: Check ID functionality
+  const [productId, setProductId] = useState("");
+  const [isCheckingId, setIsCheckingId] = useState(false);
+  const [checkIdResult, setCheckIdResult] = useState(null);
+
   const fetchDashboardStats = async () => {
     try {
       setIsLoadingStats(true);
 
       // Fetch users count and KYC stats in parallel
-      const [usersResponse, kycStatsResponse] = await Promise.all([
+      const [
+        usersResponse,
+        kycStatsResponse,
+        productsResponse,
+        dashboardResponse,
+      ] = await Promise.all([
         api.get("/api/admin/all-users"),
         api.get("/api/admin/kyc-stats"),
+        api.get("/api/admin/products"),
+        api.get("/api/admin/dashboard-stats"),
       ]);
 
       let totalUsers = 0;
       let pendingKYC = 0;
+      let totalProducts = 0;
+      let withdrawalRequests = 0;
 
       // Get total users count
       if (usersResponse.data.success) {
@@ -63,16 +81,25 @@ export default function Home() {
         pendingKYC = kycStatsResponse.data.data.pending || 0;
       }
 
+      if (productsResponse.data.success) {
+        totalProducts = productsResponse.data.data.length;
+      }
+
+      if (dashboardResponse.data.success) {
+        withdrawalRequests =
+          dashboardResponse.data.data.withdrawalRequests || 0;
+      }
+
       // Update dashboard stats with real data
       setDashboardStats([
         {
           title: "TOTAL USER",
-          count: totalUsers.toLocaleString(), // Format with commas
+          count: totalUsers.toLocaleString(),
           link: "/users",
         },
         {
           title: "TOTAL PRODUCT",
-          count: "230", // Keep static for now
+          count: totalProducts.toLocaleString(),
           link: "/products",
         },
         {
@@ -82,12 +109,17 @@ export default function Home() {
         },
         {
           title: "WITHDRAWAL REQUEST",
-          count: "100", // Keep static for now
+          count: withdrawalRequests.toString(),
           link: "/withdrawal-requests",
         },
       ]);
 
-      console.log("✅ Dashboard stats loaded:", { totalUsers, pendingKYC });
+      console.log("✅ Dashboard stats loaded:", {
+        totalUsers,
+        pendingKYC,
+        totalProducts,
+        withdrawalRequests,
+      });
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (error) {
       console.error("❌ Error fetching dashboard stats:", error);
@@ -101,7 +133,7 @@ export default function Home() {
         },
         {
           title: "TOTAL PRODUCT",
-          count: "230",
+          count: "Error",
           link: "/products",
         },
         {
@@ -111,7 +143,7 @@ export default function Home() {
         },
         {
           title: "WITHDRAWAL REQUEST",
-          count: "100",
+          count: "Error",
           link: "/withdrawal-requests",
         },
       ]);
@@ -120,60 +152,107 @@ export default function Home() {
     }
   };
 
-  const [transactions] = useState([
-    {
-      userId: "2023133",
-      name: "Rahul Sharma",
-      contact: "98743 34321",
-      couponId: "FERSASDOPP",
-      couponName: "Interior paint",
-      date: "17 jun 25, 12:00 PM",
-      coins: 5000,
-    },
-    {
-      userId: "2023133",
-      name: "Rahul Sharma",
-      contact: "98743 34321",
-      couponId: "FERSASDOPP",
-      couponName: "Interior paint",
-      date: "17 jun 25, 12:00 PM",
-      coins: 5000,
-    },
-    {
-      userId: "2023133",
-      name: "Rahul Sharma",
-      contact: "98743 34321",
-      couponId: "FERSASDOPP",
-      couponName: "Interior paint",
-      date: "17 jun 25, 12:00 PM",
-      coins: 5000,
-    },
-    {
-      userId: "2023133",
-      name: "Rahul Sharma",
-      contact: "98743 34321",
-      couponId: "FERSASDOPP",
-      couponName: "Interior paint",
-      date: "17 jun 25, 12:00 PM",
-      coins: 5000,
-    },
-    {
-      userId: "2023133",
-      name: "Rahul Sharma",
-      contact: "98743 34321",
-      couponId: "FERSASDOPP",
-      couponName: "Interior paint",
-      date: "17 jun 25, 12:00 PM",
-      coins: 5000,
-    },
-    // add more as needed
-  ]);
+  // 🚀 NEW: Fetch real transaction history
+  const fetchTransactionHistory = async () => {
+    try {
+      setIsLoadingTransactions(true);
 
-  const [productId, setProductId] = useState("");
+      const response = await api.get("/api/admin/transaction-history?limit=5");
+
+      if (response.data.success) {
+        setTransactions(response.data.data);
+        console.log("✅ Transaction history loaded:", response.data.data);
+      } else {
+        console.error(
+          "❌ Failed to fetch transactions:",
+          response.data.message
+        );
+        setTransactions([]);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching transaction history:", error);
+      setTransactions([]);
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  };
+
+  // Check ID functionality
+  const handleCheckId = async () => {
+    if (!productId.trim()) {
+      alert("Please enter a Product ID");
+      return;
+    }
+
+    try {
+      setIsCheckingId(true);
+      setCheckIdResult(null);
+
+      // 🚀 NEW: Use dedicated product ID check endpoint
+      const response = await api.post("/api/admin/check-product-id", {
+        productId: productId.trim(),
+      });
+
+      if (response.data.success) {
+        const productData = response.data.data;
+        setCheckIdResult({
+          success: true,
+          message: response.data.message,
+          data: productData,
+        });
+      } else {
+        setCheckIdResult({
+          success: false,
+          message: response.data.message,
+          data: null,
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error checking ID:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        "Error checking Product ID. Please try again.";
+      setCheckIdResult({
+        success: false,
+        message: errorMessage,
+        data: null,
+      });
+    } finally {
+      setIsCheckingId(false);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // 🚀 NEW: Get status badge color
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "active":
+        return { color: "text-green-700", bg: "bg-green-100", text: "Active" };
+      case "scanned":
+        return { color: "text-blue-700", bg: "bg-blue-100", text: "Scanned" };
+      case "disabled":
+        return { color: "text-red-700", bg: "bg-red-100", text: "Disabled" };
+      default:
+        return { color: "text-gray-700", bg: "bg-gray-100", text: "Unknown" };
+    }
+  };
 
   // ✅ close popup on outside click
   useEffect(() => {
     fetchDashboardStats();
+    fetchTransactionHistory();
     const handleClickOutside = (event) => {
       if (
         showExploreAllPopup &&
@@ -206,7 +285,10 @@ export default function Home() {
             Welcome back, Admin!
           </h1>
           <button
-            onClick={fetchDashboardStats}
+            onClick={() => {
+              fetchDashboardStats();
+              fetchTransactionHistory(); // 🚀 NEW: Refresh transactions too
+            }}
             disabled={isLoadingStats}
             className="text-sm px-3 py-1 border border-gray-300 rounded-md text-gray-600 hover:text-blue-600 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Refresh dashboard stats"
@@ -283,7 +365,12 @@ export default function Home() {
       {/* Transaction History */}
       <div className="space-y-3">
         <div className="flex items-center justify-between border-gray-300">
-          <h2 className="font-semibold text-black">Transaction History</h2>
+          <h2 className="font-semibold text-black">
+            Transaction History
+            {isLoadingTransactions && (
+              <span className="text-sm text-gray-500 ml-2">Loading...</span>
+            )}
+          </h2>
           <Link
             to="/transaction-history"
             className="text-blue-500 font-semibold hover:underline"
@@ -306,22 +393,42 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((item, idx) => (
-                <tr
-                  key={idx}
-                  className="font-semibold text-sm text-black border-b border-[#565454]"
-                >
-                  <td className="py-3">{item.userId}</td>
-                  <td className="py-3">{item.name}</td>
-                  <td className="py-3">{item.contact}</td>
-                  <td className="py-3">{item.couponId}</td>
-                  <td className="py-3">{item.couponName}</td>
-                  <td className="py-3 whitespace-nowrap">{item.date}</td>
-                  <td className="py-3 text-right pr-0 pl-0 w-10">
-                    {item.coins}
+              {isLoadingTransactions ? (
+                <tr>
+                  <td colSpan="7" className="py-8 text-center text-gray-500">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                      <span>Loading transactions...</span>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="py-8 text-center text-gray-500">
+                    No transactions found
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((item, idx) => (
+                  <tr
+                    key={idx}
+                    className="font-semibold text-sm text-black border-b border-[#565454]"
+                  >
+                    {console.log("item: ", item)}
+                    <td className="py-3">{item.userId}</td>
+                    <td className="py-3">{item.userName}</td>
+                    <td className="py-3">{item.contact}</td>
+                    <td className="py-3">{item.productId}</td>
+                    <td className="py-3">{item.productName}</td>
+                    <td className="py-3 whitespace-nowrap">
+                      {formatDate(item.scannedAt)}
+                    </td>
+                    <td className="py-3 text-right pr-0 pl-0 w-10">
+                      {item.coinsEarned}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -346,14 +453,15 @@ export default function Home() {
 
             <div className="space-y-3">
               {[
-                { text: "Category", link: "/category" },
-                { text: "Promotion", link: "/promotion" },
-                { text: "Offers", link: "/offers" },
+                { text: "Products", link: "/products" },
+                { text: "Categories", link: "/category" },
+                { text: "Promotions", link: "/promotion" },
               ].map((label, idx) => (
                 <Link
                   to={label.link}
                   key={idx}
                   className="w-full flex items-center justify-between border border-[#333333] rounded-2xl px-4 py-3 text-[#333333] text-sm font-medium hover:bg-gray-100 transition"
+                  onClick={() => setShowExploreAllPopup(false)}
                 >
                   {label.text}
                   <ChevronRight size={20} />
@@ -369,12 +477,16 @@ export default function Home() {
         <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50">
           <div
             ref={checkIdRef}
-            className="bg-white rounded-2xl p-6 w-[340px] relative space-y-5 shadow-lg"
+            className="bg-white rounded-2xl p-6 w-[450px] relative space-y-5 shadow-lg"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-black">Check the QR/ID</h2>
+              <h2 className="text-xl font-bold text-black">Check Product ID</h2>
               <button
-                onClick={() => setShowIdPopup(false)}
+                onClick={() => {
+                  setShowIdPopup(false);
+                  setCheckIdResult(null);
+                  setProductId("");
+                }}
                 className="text-black p-1 hover:bg-gray-200 rounded-full"
               >
                 <IoMdClose size={20} />
@@ -384,30 +496,114 @@ export default function Home() {
             {/* Input field */}
             <div className="space-y-1">
               <label className="text-sm font-semibold text-black">
-                Product Id
+                Product ID
               </label>
               <input
                 type="text"
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
-                placeholder="Enter your ID"
-                className="w-full border-none outline-none bg-[#F1F4FF] rounded-lg px-4 py-2 text-sm text-black"
+                placeholder="Enter Product ID (e.g., PROD_ABC123XYZ)"
+                className="w-full border-none outline-none bg-[#F1F4FF] rounded-lg px-4 py-3 text-sm text-black"
+                disabled={isCheckingId}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && !isCheckingId && productId.trim()) {
+                    handleCheckId();
+                  }
+                }}
               />
             </div>
+
+            {/* 🚀 ENHANCED: Result Display with detailed information */}
+            {checkIdResult && (
+              <div
+                className={`p-4 rounded-lg border-2 ${
+                  checkIdResult.success
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }`}
+              >
+                <p
+                  className={`text-sm font-medium mb-2 ${
+                    checkIdResult.success ? "text-green-800" : "text-red-800"
+                  }`}
+                >
+                  {checkIdResult.message}
+                </p>
+
+                {checkIdResult.success && checkIdResult.data && (
+                  <div className="space-y-2 text-xs text-green-700">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-medium">Product:</span>
+                        <p className="text-green-800">
+                          {checkIdResult.data.productName}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Category:</span>
+                        <p className="text-green-800">
+                          {checkIdResult.data.category}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Coin Reward:</span>
+                        <p className="text-green-800">
+                          {checkIdResult.data.coinReward} coins
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Status:</span>
+                        <span
+                          className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                            getStatusBadge(checkIdResult.data.qrStatus).bg
+                          } ${
+                            getStatusBadge(checkIdResult.data.qrStatus).color
+                          }`}
+                        >
+                          {getStatusBadge(checkIdResult.data.qrStatus).text}
+                        </span>
+                      </div>
+                    </div>
+
+                    {checkIdResult.data.scannedBy && (
+                      <div className="mt-3 pt-2 border-t border-green-200">
+                        <span className="font-medium">Scanned by:</span>
+                        <p className="text-green-800">
+                          {checkIdResult.data.scannedBy.name} (
+                          {checkIdResult.data.scannedBy.userId})
+                        </p>
+                        <p className="text-green-600">
+                          on {formatDate(checkIdResult.data.scannedAt)}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-2 text-xs text-green-600">
+                      Created: {formatDate(checkIdResult.data.createdAt)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Buttons */}
             <div className="flex gap-3 pt-1">
               <button
-                onClick={() => setProductId("")}
-                className="flex-1 border border-black rounded-lg py-2 text-sm font-semibold hover:bg-gray-100"
+                onClick={() => {
+                  setProductId("");
+                  setCheckIdResult(null);
+                }}
+                className="flex-1 border border-black rounded-lg py-2 text-sm font-semibold hover:bg-gray-100 transition-colors"
+                disabled={isCheckingId}
               >
-                Clean
+                Clear
               </button>
               <button
-                onClick={() => alert(`Checking ID: ${productId}`)}
-                className="flex-1 bg-black text-white rounded-lg py-2 text-sm font-semibold hover:bg-gray-900"
+                onClick={handleCheckId}
+                className="flex-1 bg-black text-white rounded-lg py-2 text-sm font-semibold hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={isCheckingId || !productId.trim()}
               >
-                Check
+                {isCheckingId ? "Checking..." : "Check ID"}
               </button>
             </div>
           </div>

@@ -13,6 +13,9 @@ import {
   getKYCStats,
   getPendingKYCRequests,
   processKYCRequest,
+  getTransactionHistory,
+  getDashboardStats,
+  checkProductId
 } from "../controllers/adminController.js";
 import { authenticateAdmin } from "../middlewares/adminAuthMiddleware.js";
 import uploadCategory from "../middlewares/uploads/category.js";
@@ -37,6 +40,9 @@ const adminRouter = express.Router();
 // Auth routes
 adminRouter.post("/login", login);
 adminRouter.post("/verify-token", verifyToken);
+
+// Product ID Check Route
+adminRouter.post("/check-product-id", authenticateAdmin, checkProductId)
 
 // Category routes
 adminRouter.post(
@@ -85,6 +91,10 @@ adminRouter.get("/products", authenticateAdmin, getAllProducts)
 adminRouter.put("/update-product/:id", authenticateAdmin, uploadProduct.single("productImage"), updateProduct)
 adminRouter.delete("/delete-product/:id", authenticateAdmin, deleteProduct)
 adminRouter.patch("/toggle-product-status/:id", authenticateAdmin, toggleProductStatus)
+
+//fetching stats
+adminRouter.get("/transaction-history", authenticateAdmin, getTransactionHistory)
+adminRouter.get("/dashboard-stats", authenticateAdmin, getDashboardStats)
 
 // 🚀 NEW: QR Testing Route for Admin
 adminRouter.post("/test-qr-scan", authenticateAdmin, testQRScan)

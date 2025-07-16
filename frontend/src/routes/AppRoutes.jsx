@@ -11,6 +11,7 @@ import Users from "../pages/users/Users";
 import KYC from "../pages/kycRequests/Kyc";
 import Products from "../pages/products/Products";
 import QRScanner from "../pages/qrTest/QRScanner";
+import Withdrawals from "../pages/withdrawals/Withdrawals";
 
 const AppRoutes = () => {
   return (
@@ -68,6 +69,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <KYC />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/withdrawal-requests"
+        element={
+          <ProtectedRoute>
+            <Withdrawals />
           </ProtectedRoute>
         }
       />
