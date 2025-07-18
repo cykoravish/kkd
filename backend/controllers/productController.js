@@ -559,7 +559,9 @@ export const scanProductQR = async (req, res) => {
       });
     }
 
-    const product = await Product.findOne({ productId: parsedData.productId });
+    const product = await Product.findOne({
+      productId: parsedData.productId,
+    }).populate("scannedBy", "fullName");
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -569,17 +571,12 @@ export const scanProductQR = async (req, res) => {
 
     if (product.qrStatus !== "active") {
       if (product.qrStatus === "scanned") {
-        // Populate scannedBy user's name
-        const scannedByUser = await User.findById(product.scannedBy).select(
-          "fullName"
-        );
-
         return res.status(200).json({
           success: false,
           scanned: true,
           message: "This QR code has already been used.",
           data: {
-            scannedByName: scannedByUser?.fullName || "Unknown User",
+            scannedByName: product.scannedBy?.fullName || "Unknown",
             scannedAt: product.scannedAt,
             productName: product.productName,
             productImage: product.productImage,
@@ -587,7 +584,6 @@ export const scanProductQR = async (req, res) => {
         });
       }
 
-      // QR is inactive
       return res.status(400).json({
         success: false,
         scanned: false,
