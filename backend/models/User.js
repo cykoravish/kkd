@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
+const scanHistorySchema = new mongoose.Schema({
+  productId: { type: String, required: true },
+  productName: { type: String, required: true },
+  categoryName: { type: String, default: "" },
+  coinsEarned: { type: Number, required: true },
+  scannedAt: { type: Date, default: Date.now },
+});
+
 const userSchema = new mongoose.Schema(
   {
     fullName: { type: String, required: true },
@@ -57,7 +65,11 @@ const userSchema = new mongoose.Schema(
     kycRejectionReason: { type: String, default: "" },
     isProfileComplete: { type: Boolean, default: false },
 
+    // 🚀 UPDATED: Keep old array for backward compatibility
     productsQrScanned: [{ type: String }],
+
+    // 🚀 NEW: Detailed scan history
+    scanHistory: [scanHistorySchema],
   },
   { timestamps: true }
 );
@@ -109,6 +121,43 @@ userSchema.methods.createKYCRequest = function () {
     return true;
   }
   return false;
+};
+
+// 🚀 NEW: Method to record a scan
+userSchema.methods.recordScan = function (
+  productId,
+  productName,
+  categoryName,
+  coinsEarned
+) {
+  // Add to detailed scan history
+  this.scanHistory.push({
+    productId,
+    productName,
+    categoryName: categoryName || "",
+    coinsEarned,
+    scannedAt: new Date(),
+  });
+
+  // Keep backward compatibility with old array
+  if (!this.productsQrScanned.includes(productId)) {
+    this.productsQrScanned.push(productId);
+  }
+
+  // Update total coins
+  this.coinsEarned += coinsEarned;
+};
+
+// 🚀 NEW: Method to check if product already scanned
+userSchema.methods.hasScannedProduct = function (productId) {
+  return this.productsQrScanned.includes(productId);
+};
+
+// 🚀 NEW: Method to get recent scans
+userSchema.methods.getRecentScans = function (limit = 10) {
+  return this.scanHistory
+    .sort((a, b) => new Date(b.scannedAt) - new Date(a.scannedAt))
+    .slice(0, limit);
 };
 
 // Password hash middleware

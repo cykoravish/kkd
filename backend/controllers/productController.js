@@ -10,7 +10,6 @@ const generateProductId = customAlphabet(
   10
 );
 
-// Helper to upload QR to Cloudinary
 const uploadQRToCloudinary = async (data) => {
   try {
     const qrImage = await qrcode.toDataURL(data, {
@@ -33,11 +32,189 @@ const uploadQRToCloudinary = async (data) => {
   }
 };
 
-// 🚀 ADMIN: Add a new product
+// 🚀 Get all products for users (only active products)
+export const getUserProducts = async (req, res) => {
+  try {
+    const { category, page = 1, limit = 10, search } = req.query
+
+    // Build filter object - only show active products for users
+    const filter = {
+      qrStatus: "active", // Only show products that can still be scanned
+    }
+
+    if (category) {
+      filter.category = category
+    }
+
+    // Add search functionality
+    if (search) {
+      filter.$or = [
+        { productName: { $regex: search, $options: "i" } },
+        { productDescription: { $regex: search, $options: "i" } },
+      ]
+    }
+
+    const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
+
+    const products = await Product.find(filter)
+      .populate("category", "categoryName categoryImage")
+      .select("productId productName productDescription productImage category coinReward createdAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number.parseInt(limit))
+
+    const totalProducts = await Product.countDocuments(filter)
+
+    res.status(200).json({
+      success: true,
+      message: "Products fetched successfully",
+      data: products,
+      pagination: {
+        currentPage: Number.parseInt(page),
+        totalPages: Math.ceil(totalProducts / Number.parseInt(limit)),
+        totalProducts,
+        hasMore: skip + products.length < totalProducts,
+      },
+    })
+  } catch (error) {
+    console.error("Get User Products Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+// 🚀 NEW: Get single product details for users
+export const getUserProductById = async (req, res) => {
+  try {
+    const { productId } = req.params
+
+    const product = await Product.findOne({
+      productId,
+      qrStatus: "active",
+    }).populate("category", "categoryName categoryImage")
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found or not available",
+      })
+    }
+
+    // Don't expose sensitive admin data to users
+    const userProduct = {
+      productId: product.productId,
+      productName: product.productName,
+      productDescription: product.productDescription,
+      productImage: product.productImage,
+      category: product.category,
+      coinReward: product.coinReward,
+      isAvailable: product.qrStatus === "active",
+      createdAt: product.createdAt,
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Product details fetched successfully",
+      data: userProduct,
+    })
+  } catch (error) {
+    console.error("Get User Product By ID Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+// 🚀 NEW: Get products by category for users
+export const getUserProductsByCategory = async (req, res) => {
+  try {
+    const { categoryId } = req.params
+    const { page = 1, limit = 10 } = req.query
+
+    // Verify category exists
+    const category = await Category.findById(categoryId)
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      })
+    }
+
+    const filter = {
+      category: categoryId,
+      qrStatus: "active",
+    }
+
+    const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
+
+    const products = await Product.find(filter)
+      .populate("category", "categoryName categoryImage")
+      .select("productId productName productDescription productImage category coinReward createdAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number.parseInt(limit))
+
+    const totalProducts = await Product.countDocuments(filter)
+
+    res.status(200).json({
+      success: true,
+      message: `Products in ${category.categoryName} fetched successfully`,
+      data: products,
+      category: {
+        id: category._id,
+        name: category.categoryName,
+        image: category.categoryImage,
+      },
+      pagination: {
+        currentPage: Number.parseInt(page),
+        totalPages: Math.ceil(totalProducts / Number.parseInt(limit)),
+        totalProducts,
+        hasMore: skip + products.length < totalProducts,
+      },
+    })
+  } catch (error) {
+    console.error("Get User Products By Category Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
+// 🚀 Get featured/popular products for users
+export const getFeaturedProducts = async (req, res) => {
+  try {
+    const { limit = 6 } = req.query
+
+    // Get products with highest coin rewards (featured) and recently added
+    const featuredProducts = await Product.find({
+      qrStatus: "active",
+    })
+      .populate("category", "categoryName categoryImage")
+      .select("productId productName productDescription productImage category coinReward createdAt")
+      .sort({ coinReward: -1, createdAt: -1 })
+      .limit(Number.parseInt(limit))
+
+    res.status(200).json({
+      success: true,
+      message: "Featured products fetched successfully",
+      data: featuredProducts,
+    })
+  } catch (error) {
+    console.error("Get Featured Products Error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    })
+  }
+}
+
 export const addProduct = async (req, res) => {
   try {
     const { productName, categoryId, coinReward } = req.body;
-
     if (!productName || !categoryId || !coinReward || !req.file) {
       return res.status(400).json({
         success: false,
@@ -288,9 +465,18 @@ export const testQRScan = async (req, res) => {
       product.scannedBy = user._id;
       product.scannedAt = new Date();
 
-      // Update user coins
-      user.coinsEarned += product.coinReward;
-      user.productsQrScanned.push(product.productId);
+      // Get category name for scan history
+      const category = await Category.findById(product.category).select(
+        "categoryName"
+      );
+
+      // Use the recordScan method to properly update user data
+      user.recordScan(
+        product.productId,
+        product.productName,
+        category?.categoryName || "",
+        product.coinReward
+      );
 
       await Promise.all([product.save(), user.save()]);
 
@@ -397,15 +583,23 @@ export const scanProductQR = async (req, res) => {
         message: "You have already scanned this product.",
       });
     }
-
     // Update product status
     product.qrStatus = "scanned";
     product.scannedBy = user._id;
     product.scannedAt = new Date();
 
-    // Update user coins
-    user.coinsEarned += product.coinReward;
-    user.productsQrScanned.push(product.productId);
+    // Get category name for scan history
+    const categoryName = await Category.findById(product.category).select(
+      "categoryName"
+    );
+
+    // Use the recordScan method to properly update user data
+    user.recordScan(
+      product.productId,
+      product.productName,
+      categoryName?.categoryName || "",
+      product.coinReward
+    );
 
     await Promise.all([product.save(), user.save()]);
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import Header from "../../components/header/Header"
 import { IoIosArrowRoundBack } from "react-icons/io"
 import { CiFilter } from "react-icons/ci"
@@ -8,10 +8,12 @@ import { Link } from "react-router-dom"
 import { api } from "../../helpers/api/api"
 
 export default function History() {
-  // 🚀 NEW: Real transaction state
+  // Real transaction state
   const [transactions, setTransactions] = useState([])
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true)
   const [totalTransactions, setTotalTransactions] = useState(0)
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const [error, setError] = useState(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -29,11 +31,12 @@ export default function History() {
   // Export state
   const [isExporting, setIsExporting] = useState(false)
 
-  // 🚀 NEW: Fetch real transaction history
-  const fetchTransactionHistory = async (page = 1, limit = 20, append = false) => {
+  // Optimized fetch function with retry logic
+  const fetchTransactionHistory = useCallback(async (page = 1, limit = 20, append = false, retryCount = 0) => {
     try {
       if (!append) {
         setIsLoadingTransactions(true)
+        setError(null)
       } else {
         setIsLoadingMore(true)
       }
@@ -41,10 +44,15 @@ export default function History() {
       const response = await api.get(`/api/admin/transaction-history?page=${page}&limit=${limit}`)
 
       if (response.data.success) {
-        const newTransactions = response.data.data
+        const newTransactions = response.data.data || []
 
         if (append) {
-          setTransactions((prev) => [...prev, ...newTransactions])
+          setTransactions((prev) => {
+            // Prevent duplicates
+            const existingIds = new Set(prev.map((t) => t.scanId || `${t.userId}_${t.scannedAt}`))
+            const uniqueNew = newTransactions.filter((t) => !existingIds.has(t.scanId || `${t.userId}_${t.scannedAt}`))
+            return [...prev, ...uniqueNew]
+          })
         } else {
           setTransactions(newTransactions)
         }
@@ -52,20 +60,34 @@ export default function History() {
         setTotalTransactions(response.data.pagination?.totalTransactions || newTransactions.length)
         setHasMore(response.data.pagination?.hasMore || false)
         setCurrentPage(page)
+        setLastUpdated(new Date())
 
         console.log("✅ Transaction history loaded:", {
           page,
           count: newTransactions.length,
           total: response.data.pagination?.totalTransactions,
+          timestamp: new Date().toISOString(),
         })
       } else {
-        console.error("❌ Failed to fetch transactions:", response.data.message)
-        if (!append) {
-          setTransactions([])
-        }
+        throw new Error(response.data.message || "Failed to fetch transactions")
       }
     } catch (error) {
       console.error("❌ Error fetching transaction history:", error)
+
+      // Retry logic for network errors
+      if (retryCount < 2 && (error.code === "NETWORK_ERROR" || error.response?.status >= 500)) {
+        console.log(`🔄 Retrying fetch (attempt ${retryCount + 1})...`)
+        setTimeout(
+          () => {
+            fetchTransactionHistory(page, limit, append, retryCount + 1)
+          },
+          1000 * (retryCount + 1),
+        )
+        return
+      }
+
+      setError(error.response?.data?.message || error.message || "Failed to load transactions")
+
       if (!append) {
         setTransactions([])
       }
@@ -73,128 +95,170 @@ export default function History() {
       setIsLoadingTransactions(false)
       setIsLoadingMore(false)
     }
-  }
+  }, [])
 
-  // 🚀 NEW: Load more transactions
-  const loadMoreTransactions = () => {
-    if (!isLoadingMore && hasMore) {
+  // Optimized load more function
+  const loadMoreTransactions = useCallback(() => {
+    if (!isLoadingMore && hasMore && !error) {
       fetchTransactionHistory(currentPage + 1, 20, true)
     }
-  }
+  }, [isLoadingMore, hasMore, currentPage, error, fetchTransactionHistory])
 
-  // Format date for display
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    })
-  }
+  // Optimized date formatting with error handling
+  const formatDate = useCallback((dateString) => {
+    try {
+      if (!dateString) return "N/A"
 
-  // 🚀 NEW: Filter transactions by date
-  const applyDateFilter = () => {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date string:", dateString)
+        return "Invalid Date"
+      }
+
+      return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+    } catch (error) {
+      console.error("Error formatting date:", error, "Date string:", dateString)
+      return "Error"
+    }
+  }, [])
+
+  // Optimized filter function with memoization
+  const applyDateFilter = useCallback(() => {
     if (!startDate && !endDate) {
       setFilteredTransactions([])
       setIsFiltered(false)
       return
     }
 
+    const startTime = startDate ? new Date(startDate).getTime() : 0
+    const endTime = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Number.POSITIVE_INFINITY
+
     const filtered = transactions.filter((transaction) => {
-      const transactionDate = new Date(transaction.scannedAt)
-      let isInRange = true
-
-      if (startDate) {
-        const start = new Date(startDate)
-        isInRange = isInRange && transactionDate >= start
+      try {
+        const transactionTime = new Date(transaction.scannedAt).getTime()
+        return transactionTime >= startTime && transactionTime <= endTime
+      } catch (error) {
+        console.warn("Error filtering transaction:", transaction, error)
+        return false
       }
-
-      if (endDate) {
-        const end = new Date(endDate)
-        end.setHours(23, 59, 59, 999) // Include the entire end date
-        isInRange = isInRange && transactionDate <= end
-      }
-
-      return isInRange
     })
 
     setFilteredTransactions(filtered)
     setIsFiltered(true)
     console.log(`✅ Filtered ${filtered.length} transactions from ${transactions.length} total`)
-  }
+  }, [transactions, startDate, endDate])
 
-  // 🚀 NEW: Export to CSV
-  const exportToCSV = async () => {
+  // Optimized CSV export with better error handling
+  const exportToCSV = useCallback(async () => {
     try {
       setIsExporting(true)
 
-      // Get all transactions for export (not just current page)
-      const response = await api.get("/api/admin/transaction-history?limit=10000")
-
-      if (response.data.success) {
-        const allTransactions = response.data.data
-        const dataToExport = isFiltered ? filteredTransactions : allTransactions
-
-        // Create CSV content
-        const headers = ["User ID", "User Name", "Contact", "Product ID", "Product Name", "Date & Time", "Coins Earned"]
-        const csvContent = [
-          headers.join(","),
-          ...dataToExport.map((transaction) =>
-            [
-              transaction.userId,
-              `"${transaction.userName}"`,
-              transaction.contact,
-              transaction.productId,
-              `"${transaction.productName}"`,
-              `"${formatDate(transaction.scannedAt)}"`,
-              transaction.coinsEarned,
-            ].join(","),
-          ),
-        ].join("\n")
-
-        // Download CSV
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-        const link = document.createElement("a")
-        const url = URL.createObjectURL(blob)
-        link.setAttribute("href", url)
-        link.setAttribute("download", `transaction_history_${new Date().toISOString().split("T")[0]}.csv`)
-        link.style.visibility = "hidden"
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-
-        console.log(`✅ Exported ${dataToExport.length} transactions to CSV`)
+      // Use current data if filtered, otherwise fetch all
+      let dataToExport
+      if (isFiltered) {
+        dataToExport = filteredTransactions
+      } else {
+        const response = await api.get("/api/admin/transaction-history?limit=10000")
+        if (response.data.success) {
+          dataToExport = response.data.data || []
+        } else {
+          throw new Error("Failed to fetch data for export")
+        }
       }
+
+      if (dataToExport.length === 0) {
+        alert("No data to export")
+        return
+      }
+
+      // Create CSV content with proper escaping
+      const headers = ["User ID", "User Name", "Contact", "Product ID", "Product Name", "Date & Time", "Coins Earned"]
+      const csvContent = [
+        headers.join(","),
+        ...dataToExport.map((transaction) => {
+          const escapeCsvField = (field) => {
+            if (field == null) return '""'
+            const str = String(field)
+            if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+              return `"${str.replace(/"/g, '""')}"`
+            }
+            return str
+          }
+
+          return [
+            escapeCsvField(transaction.userId),
+            escapeCsvField(transaction.userName),
+            escapeCsvField(transaction.contact),
+            escapeCsvField(transaction.productId),
+            escapeCsvField(transaction.productName),
+            escapeCsvField(formatDate(transaction.scannedAt)),
+            escapeCsvField(transaction.coinsEarned),
+          ].join(",")
+        }),
+      ].join("\n")
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute("download", `transaction_history_${new Date().toISOString().split("T")[0]}.csv`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url) // Clean up
+
+      console.log(`✅ Exported ${dataToExport.length} transactions to CSV`)
     } catch (error) {
       console.error("❌ Error exporting CSV:", error)
-      alert("Failed to export CSV. Please try again.")
+      alert(`Failed to export CSV: ${error.message}. Please try again.`)
     } finally {
       setIsExporting(false)
     }
-  }
+  }, [isFiltered, filteredTransactions, formatDate])
 
-  const toggleFilter = () => {
+  const toggleFilter = useCallback(() => {
     setIsFilterOpen(!isFilterOpen)
-  }
+  }, [isFilterOpen])
 
-  const handleClean = () => {
+  const handleClean = useCallback(() => {
     setStartDate("")
     setEndDate("")
     setFilteredTransactions([])
     setIsFiltered(false)
     setIsFilterOpen(false)
-  }
+  }, [])
 
-  const handleApply = () => {
+  const handleApply = useCallback(() => {
     applyDateFilter()
     setIsFilterOpen(false)
-  }
+  }, [applyDateFilter])
 
-  // Get current transactions to display
-  const currentTransactions = isFiltered ? filteredTransactions : transactions
+  // Refresh function
+  const handleRefresh = useCallback(() => {
+    setCurrentPage(1)
+    setHasMore(false)
+    fetchTransactionHistory(1, 20, false)
+  }, [fetchTransactionHistory])
+
+  // Memoized current transactions to display
+  const currentTransactions = useMemo(() => {
+    return isFiltered ? filteredTransactions : transactions
+  }, [isFiltered, filteredTransactions, transactions])
+
+  // Memoized transaction count display
+  const transactionCountText = useMemo(() => {
+    const count = isFiltered ? filteredTransactions.length : totalTransactions
+    return `(${count.toLocaleString()} transaction${count !== 1 ? "s" : ""})`
+  }, [isFiltered, filteredTransactions.length, totalTransactions])
 
   useEffect(() => {
     fetchTransactionHistory()
@@ -207,7 +271,7 @@ export default function History() {
 
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [isFilterOpen])
+  }, [isFilterOpen, fetchTransactionHistory])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#C3E8FF] to-white px-10 pt-7 pb-12 space-y-8 relative">
@@ -220,10 +284,29 @@ export default function History() {
               <IoIosArrowRoundBack size={35} className="mr-1 text-black" />
             </Link>
             Transaction History
-            {/* 🚀 NEW: Show transaction count */}
-            <span className="ml-2 text-sm text-gray-600 font-normal">
-              ({isFiltered ? filteredTransactions.length : totalTransactions} transactions)
-            </span>
+            <span className="ml-2 text-sm text-gray-600 font-normal">{transactionCountText}</span>
+            {/* Refresh button */}
+            <button
+              onClick={handleRefresh}
+              disabled={isLoadingTransactions}
+              className="ml-3 text-xs px-2 py-1 border border-gray-300 rounded text-gray-600 hover:text-blue-600 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Refresh transaction history"
+            >
+              {isLoadingTransactions ? "🔄" : "↻"}
+            </button>
+            {/* Last updated indicator */}
+            {lastUpdated && !isLoadingTransactions && (
+              <span className="ml-2 text-xs text-gray-500 flex items-center">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+                Updated: {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+            {error && (
+              <span className="ml-2 text-xs text-red-500 flex items-center">
+                <span className="w-2 h-2 bg-red-500 rounded-full mr-1"></span>
+                Failed to update
+              </span>
+            )}
           </h2>
 
           <div className="flex items-center gap-8">
@@ -242,14 +325,31 @@ export default function History() {
             <button
               onClick={exportToCSV}
               disabled={isExporting || currentTransactions.length === 0}
-              className="bg-[#333333] hover:bg-black text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-[#333333] hover:bg-black text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isExporting ? "Exporting..." : "Download CSV"}
+              {isExporting ? (
+                <div className="flex items-center space-x-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+                  <span>Exporting...</span>
+                </div>
+              ) : (
+                "Download CSV"
+              )}
             </button>
           </div>
         </div>
 
-        {/* 🚀 NEW: Loading state */}
+        {/* Error state */}
+        {error && !isLoadingTransactions && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
+            <span className="text-red-800 text-sm">⚠️ {error}</span>
+            <button onClick={handleRefresh} className="text-red-600 hover:text-red-800 text-sm font-medium">
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Loading state */}
         {isLoadingTransactions ? (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center space-x-2">
@@ -259,11 +359,11 @@ export default function History() {
           </div>
         ) : (
           <>
-            {/* 🚀 NEW: Filter status */}
+            {/* Filter status */}
             {isFiltered && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
                 <span className="text-blue-800 text-sm">
-                  Showing {filteredTransactions.length} filtered transactions
+                  Showing {filteredTransactions.length.toLocaleString()} filtered transactions
                   {startDate && ` from ${new Date(startDate).toLocaleDateString()}`}
                   {endDate && ` to ${new Date(endDate).toLocaleDateString()}`}
                 </span>
@@ -297,15 +397,15 @@ export default function History() {
                     currentTransactions.map((item, idx) => (
                       <tr
                         key={`${item.scanId || item.userId}_${idx}`}
-                        className="font-semibold text-sm text-black border-b border-[#565454] hover:bg-gray-50"
+                        className="font-semibold text-sm text-black border-b border-[#565454] hover:bg-gray-50 transition-colors"
                       >
-                        <td className="py-3">{item.userId}</td>
-                        <td className="py-3">{item.userName}</td>
-                        <td className="py-3">{item.contact}</td>
-                        <td className="py-3">{item.productId}</td>
-                        <td className="py-3">{item.productName}</td>
+                        <td className="py-3">{item.userId || "N/A"}</td>
+                        <td className="py-3">{item.userName || "N/A"}</td>
+                        <td className="py-3">{item.contact || "N/A"}</td>
+                        <td className="py-3">{item.productId || "N/A"}</td>
+                        <td className="py-3">{item.productName || "N/A"}</td>
                         <td className="py-3 whitespace-nowrap">{formatDate(item.scannedAt)}</td>
-                        <td className="py-3 text-right pr-0 pl-0 w-10">{item.coinsEarned}</td>
+                        <td className="py-3 text-right pr-0 pl-0 w-10">{item.coinsEarned || 0}</td>
                       </tr>
                     ))
                   )}
@@ -313,13 +413,13 @@ export default function History() {
               </table>
             </div>
 
-            {/* 🚀 NEW: Load More Button */}
-            {!isFiltered && hasMore && (
+            {/* Load More Button */}
+            {!isFiltered && hasMore && !error && (
               <div className="flex justify-center pt-4">
                 <button
                   onClick={loadMoreTransactions}
                   disabled={isLoadingMore}
-                  className="bg-[#333333] hover:bg-black text-white px-6 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#333333] hover:bg-black text-white px-6 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isLoadingMore ? (
                     <div className="flex items-center space-x-2">
@@ -336,7 +436,7 @@ export default function History() {
         )}
       </div>
 
-      {/* 🚀 ENHANCED: Filter popup with date pickers */}
+      {/* Filter popup */}
       {isFilterOpen && (
         <>
           <div
@@ -364,7 +464,8 @@ export default function History() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:border-blue-500 outline-none"
+                    max={endDate || new Date().toISOString().split("T")[0]}
+                    className="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition-colors"
                   />
                 </div>
 
@@ -374,11 +475,13 @@ export default function History() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:border-blue-500 outline-none"
+                    min={startDate}
+                    max={new Date().toISOString().split("T")[0]}
+                    className="w-full p-2 border rounded-lg bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition-colors"
                   />
                 </div>
 
-                {/* 🚀 NEW: Filter preview */}
+                {/* Filter preview */}
                 {(startDate || endDate) && (
                   <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
                     <strong>Preview:</strong>
@@ -396,7 +499,8 @@ export default function History() {
                   </button>
                   <button
                     onClick={handleApply}
-                    className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-black transition-colors"
+                    disabled={!startDate && !endDate}
+                    className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Apply Filter
                   </button>

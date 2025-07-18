@@ -574,125 +574,179 @@ export const getUsersByVerificationStatus = async (req, res) => {
 // 🚀 NEW: Get Transaction History (QR Scan History)
 export const getTransactionHistory = async (req, res) => {
   try {
-    const { limit = 10, page = 1 } = req.query;
+    const { limit = 20, page = 1, startDate, endDate, userId } = req.query
 
-    // Get users with their QR scan history
-    const users = await User.find({
-      productsQrScanned: { $exists: true, $not: { $size: 0 } },
-    })
-      .select("userId fullName phone productsQrScanned coinsEarned")
-      .sort({ updatedAt: -1 })
-      .limit(Number.parseInt(limit))
-      .skip((Number.parseInt(page) - 1) * Number.parseInt(limit));
+    // Build match conditions
+    const matchConditions = {
+      scanHistory: { $exists: true, $not: { $size: 0 } },
+    }
 
-    const transactions = [];
+    // Filter by specific user if provided
+    if (userId) {
+      matchConditions.userId = userId
+    }
 
-    for (const user of users) {
-      if (user.productsQrScanned && user.productsQrScanned.length > 0) {
-        // Get the most recent scans for this user
-        const recentScans = user.productsQrScanned.slice(-5); // Last 5 scans
-        console.log("recentScans: ", recentScans);
-        for (const scanData of recentScans) {
-          transactions.push({
-            userId: user.userId,
-            userName: user.fullName,
-            contact: user.phone,
-            productId: scanData.productId || "N/A",
-            productName: scanData.productName || "Product Scan",
-            scannedAt: scanData.scannedAt || new Date(),
-            coinsEarned: scanData.coinsEarned || 0,
-            scanId: scanData._id || `${user.userId}_${Date.now()}`,
-          });
+    // Build aggregation pipeline
+    const pipeline = [
+      { $match: matchConditions },
+      { $unwind: "$scanHistory" },
+      {
+        $project: {
+          userId: 1,
+          fullName: 1,
+          phone: 1,
+          email: 1,
+          scanData: "$scanHistory",
+        },
+      },
+    ]
+
+    // Add date filtering if provided
+    if (startDate || endDate) {
+      const dateMatch = {}
+      if (startDate) {
+        dateMatch["scanData.scannedAt"] = { $gte: new Date(startDate) }
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate)
+        endDateTime.setHours(23, 59, 59, 999)
+        if (dateMatch["scanData.scannedAt"]) {
+          dateMatch["scanData.scannedAt"].$lte = endDateTime
+        } else {
+          dateMatch["scanData.scannedAt"] = { $lte: endDateTime }
         }
       }
+      pipeline.push({ $match: dateMatch })
     }
 
     // Sort by scan date (most recent first)
-    transactions.sort((a, b) => new Date(b.scannedAt) - new Date(a.scannedAt));
+    pipeline.push({ $sort: { "scanData.scannedAt": -1 } })
 
-    // Limit to requested number
-    const limitedTransactions = transactions.slice(0, Number.parseInt(limit));
+    // Get total count for pagination
+    const totalPipeline = [...pipeline, { $count: "total" }]
+    const totalResult = await User.aggregate(totalPipeline)
+    const totalTransactions = totalResult[0]?.total || 0
+
+    // Add pagination
+    const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
+    pipeline.push({ $skip: skip }, { $limit: Number.parseInt(limit) })
+
+    // Execute aggregation
+    const results = await User.aggregate(pipeline)
+
+    // Format the results
+    const transactions = results.map((result) => ({
+      userId: result.userId,
+      userName: result.fullName,
+      contact: result.phone,
+      email: result.email,
+      productId: result.scanData.productId,
+      productName: result.scanData.productName,
+      categoryName: result.scanData.categoryName || "N/A",
+      scannedAt: result.scanData.scannedAt,
+      coinsEarned: result.scanData.coinsEarned,
+      scanId: result.scanData._id,
+    }))
 
     res.status(200).json({
       success: true,
       message: "Transaction history fetched successfully",
-      data: limitedTransactions,
+      data: transactions,
       pagination: {
         currentPage: Number.parseInt(page),
-        totalTransactions: transactions.length,
-        hasMore: transactions.length > Number.parseInt(limit),
+        totalPages: Math.ceil(totalTransactions / Number.parseInt(limit)),
+        totalTransactions,
+        hasMore: skip + transactions.length < totalTransactions,
+        limit: Number.parseInt(limit),
       },
-    });
+    })
   } catch (error) {
-    console.error("Get Transaction History Error:", error);
+    console.error("Get Transaction History Error:", error)
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
-    });
+    })
   }
-};
+}
 
 // 🚀 NEW: Get Dashboard Statistics (Enhanced)
 export const getDashboardStats = async (req, res) => {
   try {
-    const [totalUsers, kycStats, totalScans, recentTransactions] =
-      await Promise.all([
-        User.countDocuments(),
-        User.aggregate([
-          {
-            $group: {
-              _id: "$kycStatus",
-              count: { $sum: 1 },
-            },
+    const [totalUsers, kycStats, scanStats, productStats] = await Promise.all([
+      User.countDocuments(),
+      User.aggregate([
+        {
+          $group: {
+            _id: "$kycStatus",
+            count: { $sum: 1 },
           },
-        ]),
-        User.aggregate([
-          {
-            $project: {
-              scanCount: { $size: { $ifNull: ["$productsQrScanned", []] } },
-            },
+        },
+      ]),
+      User.aggregate([
+        {
+          $project: {
+            scanCount: { $size: { $ifNull: ["$scanHistory", []] } },
+            totalCoins: "$coinsEarned",
           },
-          {
-            $group: {
-              _id: null,
-              totalScans: { $sum: "$scanCount" },
-            },
+        },
+        {
+          $group: {
+            _id: null,
+            totalScans: { $sum: "$scanCount" },
+            totalCoinsDistributed: { $sum: "$totalCoins" },
           },
-        ]),
-        User.find({
-          productsQrScanned: { $exists: true, $not: { $size: 0 } },
-        }).countDocuments(),
-      ]);
+        },
+      ]),
+      Product.aggregate([
+        {
+          $group: {
+            _id: "$qrStatus",
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ])
 
     const formattedKycStats = {
       incomplete: 0,
       pending: 0,
       approved: 0,
       rejected: 0,
-    };
+    }
 
     kycStats.forEach((stat) => {
-      formattedKycStats[stat._id] = stat.count;
-    });
+      formattedKycStats[stat._id] = stat.count
+    })
+
+    const formattedProductStats = {
+      active: 0,
+      scanned: 0,
+      disabled: 0,
+    }
+
+    productStats.forEach((stat) => {
+      formattedProductStats[stat._id] = stat.count
+    })
 
     const dashboardData = {
       totalUsers,
       kycStats: formattedKycStats,
-      totalScans: totalScans[0]?.totalScans || 0,
-      activeUsers: recentTransactions,
+      totalScans: scanStats[0]?.totalScans || 0,
+      totalCoinsDistributed: scanStats[0]?.totalCoinsDistributed || 0,
+      productStats: formattedProductStats,
       withdrawalRequests: 0, // TODO: Implement withdrawal system
-    };
+    }
 
     res.status(200).json({
       success: true,
       message: "Dashboard statistics fetched successfully",
       data: dashboardData,
-    });
+    })
   } catch (error) {
-    console.error("Get Dashboard Stats Error:", error);
+    console.error("Get Dashboard Stats Error:", error)
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
-    });
+    })
   }
-};
+}

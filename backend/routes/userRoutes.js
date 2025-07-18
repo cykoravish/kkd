@@ -18,7 +18,7 @@ import {
   uploadPassbook,
 } from "../middlewares/uploads/documents.js";
 import { getAllPromotions } from "../controllers/promotionController.js";
-import { scanProductQR } from "../controllers/productController.js";
+import { getFeaturedProducts, getUserProductById, getUserProducts, getUserProductsByCategory, scanProductQR } from "../controllers/productController.js";
 
 const userRouter = express.Router();
 
@@ -30,6 +30,10 @@ userRouter.post("/login", userLogin);
 userRouter.get("/get-user", authenticateToken, getUser);
 userRouter.get("/get-categories", authenticateToken, getAllCategories);
 userRouter.get("/get-promotions", authenticateToken, getAllPromotions);
+userRouter.get("/get-products", authenticateToken, getUserProducts);
+userRouter.get("/get-product/:productId", authenticateToken, getUserProductById);
+userRouter.get("/get-products-by-category/:categoryId", authenticateToken, getUserProductsByCategory);
+userRouter.get("/get-featured-products", authenticateToken, getFeaturedProducts);
 
 // Profile update routes
 userRouter.put(
