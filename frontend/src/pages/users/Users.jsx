@@ -114,6 +114,7 @@ export default function Users() {
             bankName: user.bankName || "Not provided",
             ifsc: user.ifscCode || "Not provided",
             coinsEarned: user.coinsEarned || 0,
+            scanHistory: user.scanHistory || "Not provided",
 
             // 🚀 NEW: Complete status-based verification fields
             panVerificationStatus: user.panVerificationStatus || "incomplete",
@@ -174,7 +175,6 @@ export default function Users() {
         user.userId.toLowerCase().includes(term)
     );
   }, [users, searchTerm]);
-
   // 🚀 Optimized pagination
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
   const currentContacts = useMemo(() => {
@@ -1109,6 +1109,68 @@ export default function Users() {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-xl shadow-md border border-gray-200">
+                      <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                        <span className="mr-2 text-blue-500 text-xl">💳</span>
+                        Scan History
+                      </h4>
+
+                      {Array.isArray(selectedUser.scanHistory) &&
+                      selectedUser.scanHistory.length > 0 ? (
+                        <>
+                          {/* Summary Section */}
+                          <div className="flex justify-between items-center bg-blue-50 border border-blue-100 rounded-md p-3 mb-4 text-sm text-blue-800 font-medium">
+                            <span>
+                              🧾 Total Scanned:{" "}
+                              {selectedUser.scanHistory.length} items
+                            </span>
+                            <span>
+                              🪙 Total Coins Earned: {selectedUser.coinsEarned}
+                            </span>
+                          </div>
+
+                          {/* Scrollable List */}
+                          <div className="max-h-80 overflow-y-auto pr-1 space-y-3">
+                            {selectedUser.scanHistory.map((item, index) => (
+                              <div
+                                key={item._id || index}
+                                className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition duration-200 ease-in-out"
+                              >
+                                <div className="text-sm text-gray-800">
+                                  <span className="font-medium text-blue-600">
+                                    📦 Product:
+                                  </span>{" "}
+                                  {item.productName}
+                                </div>
+                                <div className="text-sm text-gray-700">
+                                  <span className="font-medium text-green-600">
+                                    🏷️ Category:
+                                  </span>{" "}
+                                  {item.categoryName}
+                                </div>
+                                <div className="text-sm text-gray-700">
+                                  <span className="font-medium text-yellow-600">
+                                    🪙 Coins Earned:
+                                  </span>{" "}
+                                  {item.coinsEarned}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  <span className="font-medium text-purple-600">
+                                    📅 Scanned At:
+                                  </span>{" "}
+                                  {new Date(item.scannedAt).toLocaleString()}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">
+                          No scan history available.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

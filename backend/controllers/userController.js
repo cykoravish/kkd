@@ -2,6 +2,8 @@ import User from "../models/User.js";
 import { customAlphabet } from "nanoid";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import WithdrawalRequest from "../models/WithdrawalRequest.js";
+
 
 const nanoid = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 16);
 
@@ -495,3 +497,58 @@ export const uploadPassbookPhoto = async (req, res) => {
     })
   }
 }
+
+//withdrawl req route controllers
+
+// CREATE a withdrawal request
+export const createWithdrawalRequest = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const {userId} = req.user;
+    console.log("req.user: ", req.user)
+    if (!userId || !amount) {
+      return res.status(400).json({ message: "User ID and amount are required" });
+    }
+
+    const user = await User.findOne({userId})
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.coinsEarned < amount) {
+      return res.status(400).json({ message: "Not enough coins to withdraw" });
+    }
+
+    const newRequest = new WithdrawalRequest({
+      user: user._id,
+      amount,
+    });
+
+    await newRequest.save();
+
+    return res.status(201).json({ message: "Withdrawal request submitted", request: newRequest });
+  } catch (err) {
+    console.error("Error creating withdrawal request:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// // GET all withdrawal requests (admin)
+// export const getAllWithdrawalRequests = async (req, res) => {
+//   try {
+//     const requests = await WithdrawalRequest.find().populate("user", "name email");
+//     res.status(200).json(requests);
+//   } catch (err) {
+//     res.status(500).json({ message: "Error fetching requests" });
+//   }
+// };
+
+// // GET requests for a specific user
+// export const getUserWithdrawalRequests = async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+//     const requests = await WithdrawalRequest.find({ user: userId }).sort({ createdAt: -1 });
+//     res.status(200).json(requests);
+//   } catch (err) {
+//     res.status(500).json({ message: "Error fetching user's requests" });
+//   }
+// };

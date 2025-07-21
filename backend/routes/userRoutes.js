@@ -8,6 +8,7 @@ import {
   uploadPanPhoto,
   uploadAadharPhoto,
   uploadPassbookPhoto,
+  createWithdrawalRequest,
 } from "../controllers/userController.js";
 import { authenticateToken } from "../middlewares/userAuthMiddleware.js";
 import { getAllCategories } from "../controllers/adminController.js";
@@ -63,6 +64,8 @@ userRouter.post(
   uploadPassbook.single("passbookPhoto"),
   uploadPassbookPhoto
 );
+
+userRouter.post("/create-withdrawal-req", authenticateToken, createWithdrawalRequest)
 
 // QR Scan Route
 userRouter.post("/scan-qr", authenticateToken, scanProductQR)
