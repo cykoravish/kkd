@@ -4,7 +4,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import WithdrawalRequest from "../models/WithdrawalRequest.js";
 
-
 const nanoid = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 16);
 
 export const userSignup = async (req, res) => {
@@ -343,34 +342,34 @@ export const updatePassword = async (req, res) => {
 // 🚀 UPDATED: Upload PAN Photo with Status
 export const uploadPanPhoto = async (req, res) => {
   try {
-    const userId = req.user.userId
+    const userId = req.user.userId;
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
         message: "PAN photo is required",
-      })
+      });
     }
 
-    const user = await User.findOne({ userId })
+    const user = await User.findOne({ userId });
     if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
-      })
+      });
     }
 
-    user.panPhoto = req.file.path
-    user.panVerificationStatus = "processing"
-    user.panRejectionReason = ""
+    user.panPhoto = req.file.path;
+    user.panVerificationStatus = "processing";
+    user.panRejectionReason = "";
 
     // Check if profile is complete and create KYC request
-    let kycRequestCreated = false
+    let kycRequestCreated = false;
     if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
-      kycRequestCreated = user.createKYCRequest()
+      kycRequestCreated = user.createKYCRequest();
     }
 
-    await user.save()
+    await user.save();
 
     res.status(200).json({
       success: true,
@@ -383,46 +382,46 @@ export const uploadPanPhoto = async (req, res) => {
         kycStatus: user.kycStatus,
       },
       kycRequestCreated,
-    })
+    });
   } catch (error) {
-    console.error("Upload PAN Photo Error:", error)
+    console.error("Upload PAN Photo Error:", error);
     res.status(500).json({
       success: false,
       message: "Server Error",
-    })
+    });
   }
-}
+};
 
 // 🚀 UPDATED: Upload Aadhar Photo with Status
 export const uploadAadharPhoto = async (req, res) => {
   try {
-    const userId = req.user.userId
+    const userId = req.user.userId;
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
         message: "Aadhar photo is required",
-      })
+      });
     }
 
-    const user = await User.findOne({ userId })
+    const user = await User.findOne({ userId });
     if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
-      })
+      });
     }
 
-    user.aadharPhoto = req.file.path
-    user.aadharVerificationStatus = "processing"
-    user.aadharRejectionReason = ""
+    user.aadharPhoto = req.file.path;
+    user.aadharVerificationStatus = "processing";
+    user.aadharRejectionReason = "";
 
-    let kycRequestCreated = false
+    let kycRequestCreated = false;
     if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
-      kycRequestCreated = user.createKYCRequest()
+      kycRequestCreated = user.createKYCRequest();
     }
 
-    await user.save()
+    await user.save();
 
     res.status(200).json({
       success: true,
@@ -435,47 +434,47 @@ export const uploadAadharPhoto = async (req, res) => {
         kycStatus: user.kycStatus,
       },
       kycRequestCreated,
-    })
+    });
   } catch (error) {
-    console.error("Upload Aadhar Photo Error:", error)
+    console.error("Upload Aadhar Photo Error:", error);
     res.status(500).json({
       success: false,
       message: "Server Error",
-    })
+    });
   }
-}
+};
 
 // 🚀 UPDATED: Upload Passbook Photo with Status
 export const uploadPassbookPhoto = async (req, res) => {
-  console.log("uplaod passbook running")
+  console.log("uplaod passbook running");
   try {
-    const userId = req.user.userId
+    const userId = req.user.userId;
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
         message: "Passbook photo is required",
-      })
+      });
     }
 
-    const user = await User.findOne({ userId })
+    const user = await User.findOne({ userId });
     if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
-      })
+      });
     }
 
-    user.passbookPhoto = req.file.path
-    user.passbookVerificationStatus = "processing"
-    user.passbookRejectionReason = ""
+    user.passbookPhoto = req.file.path;
+    user.passbookVerificationStatus = "processing";
+    user.passbookRejectionReason = "";
 
-    let kycRequestCreated = false
+    let kycRequestCreated = false;
     if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
-      kycRequestCreated = user.createKYCRequest()
+      kycRequestCreated = user.createKYCRequest();
     }
 
-    await user.save()
+    await user.save();
 
     res.status(200).json({
       success: true,
@@ -488,15 +487,15 @@ export const uploadPassbookPhoto = async (req, res) => {
         kycStatus: user.kycStatus,
       },
       kycRequestCreated,
-    })
+    });
   } catch (error) {
-    console.error("Upload Passbook Photo Error:", error)
+    console.error("Upload Passbook Photo Error:", error);
     res.status(500).json({
       success: false,
       message: "Server Error",
-    })
+    });
   }
-}
+};
 
 //withdrawl req route controllers
 
@@ -504,28 +503,51 @@ export const uploadPassbookPhoto = async (req, res) => {
 export const createWithdrawalRequest = async (req, res) => {
   try {
     const { amount } = req.body;
-    const {userId} = req.user;
-    console.log("req.user: ", req.user)
-    if (!userId || !amount) {
-      return res.status(400).json({ message: "User ID and amount are required" });
+    const { userId } = req.user;
+
+    const amountNumber = Number(amount);
+
+    if (!userId || amount == null) {
+      return res
+        .status(400)
+        .json({ message: "User ID and amount are required" });
     }
 
-    const user = await User.findOne({userId})
+    if (isNaN(amountNumber) || amountNumber <= 0) {
+      return res
+        .status(400)
+        .json({ message: "Amount must be a valid number greater than 0" });
+    }
+
+    const user = await User.findOne({ userId });
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.coinsEarned < amount) {
+    if (user.kycStatus !== "approved") {
+      return res
+        .status(400)
+        .json({
+          message:
+            "KYC must be approved before withdrawal. complete your profile first",
+        });
+    }
+
+    if (user.coinsEarned < amountNumber) {
       return res.status(400).json({ message: "Not enough coins to withdraw" });
     }
 
     const newRequest = new WithdrawalRequest({
       user: user._id,
-      amount,
+      amount: amountNumber,
     });
 
     await newRequest.save();
 
-    return res.status(201).json({ message: "Withdrawal request submitted", request: newRequest });
+    return res.status(201).json({
+      success: true,
+      message: "Withdrawal request submitted",
+      data: newRequest,
+    });
   } catch (err) {
     console.error("Error creating withdrawal request:", err);
     res.status(500).json({ message: "Internal server error" });

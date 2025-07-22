@@ -24,7 +24,7 @@ const uploadQRToCloudinary = async (data) => {
       },
     });
     const result = await cloudinary.uploader.upload(qrImage, {
-      folder: "kkd/qrcodes",
+      folder: "kkd/offerqrcodes",
     });
     return result.secure_url;
   } catch (err) {
@@ -34,7 +34,7 @@ const uploadQRToCloudinary = async (data) => {
 };
 
 // 🚀 Get all products for users (only active products)
-export const getUserProducts = async (req, res) => {
+export const getUserOfferProducts = async (req, res) => {
   try {
     const { category, page = 1, limit = 10, search } = req.query;
 
@@ -57,7 +57,7 @@ export const getUserProducts = async (req, res) => {
 
     const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit);
 
-    const products = await Product.find(filter)
+    const products = await Offer.find(filter)
       .populate("category", "categoryName categoryImage")
       .select(
         "productId productName productDescription productImage category coinReward createdAt"
@@ -66,7 +66,7 @@ export const getUserProducts = async (req, res) => {
       .skip(skip)
       .limit(Number.parseInt(limit));
 
-    const totalProducts = await Product.countDocuments(filter);
+    const totalProducts = await Offer.countDocuments(filter);
 
     res.status(200).json({
       success: true,
@@ -89,11 +89,11 @@ export const getUserProducts = async (req, res) => {
 };
 
 // 🚀 NEW: Get single product details for users
-export const getUserProductById = async (req, res) => {
+export const getUserOfferProductById = async (req, res) => {
   try {
     const { productId } = req.params;
 
-    const product = await Product.findOne({
+    const product = await Offer.findOne({
       productId,
       qrStatus: "active",
     }).populate("category", "categoryName categoryImage");
@@ -132,7 +132,7 @@ export const getUserProductById = async (req, res) => {
 };
 
 // 🚀 NEW: Get products by category for users
-export const getUserProductsByCategory = async (req, res) => {
+export const getUserOfferProductsByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
     const { page = 1, limit = 10 } = req.query;
@@ -153,7 +153,7 @@ export const getUserProductsByCategory = async (req, res) => {
 
     const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit);
 
-    const products = await Product.find(filter)
+    const products = await Offer.find(filter)
       .populate("category", "categoryName categoryImage")
       .select(
         "productId productName productDescription productImage category coinReward createdAt"
@@ -190,12 +190,12 @@ export const getUserProductsByCategory = async (req, res) => {
 };
 
 // 🚀 Get featured/popular products for users
-export const getFeaturedProducts = async (req, res) => {
+export const getFeaturedOfferProducts = async (req, res) => {
   try {
     const { limit = 6 } = req.query;
 
     // Get products with highest coin rewards (featured) and recently added
-    const featuredProducts = await Product.find({
+    const featuredProducts = await Offer.find({
       qrStatus: "active",
     })
       .populate("category", "categoryName categoryImage")
@@ -219,7 +219,7 @@ export const getFeaturedProducts = async (req, res) => {
   }
 };
 
-export const addProduct = async (req, res) => {
+export const addOfferProduct = async (req, res) => {
   try {
     const { productName, categoryId, coinReward } = req.body;
     if (!productName || !categoryId || !coinReward || !req.file) {
@@ -248,7 +248,7 @@ export const addProduct = async (req, res) => {
     };
     const qrCodeImage = await uploadQRToCloudinary(JSON.stringify(qrData));
 
-    const newProduct = new Product({
+    const newProduct = new Offer({
       productId,
       productName,
       category: categoryId,
@@ -271,9 +271,9 @@ export const addProduct = async (req, res) => {
 };
 
 // 🚀 ADMIN: Get all products
-export const getAllProducts = async (req, res) => {
+export const getAllOfferProducts = async (req, res) => {
   try {
-    const products = await Product.find()
+    const products = await Offer.find()
       .populate("category", "categoryName")
       .sort({ createdAt: -1 });
     res.status(200).json({
@@ -288,12 +288,12 @@ export const getAllProducts = async (req, res) => {
 };
 
 // 🚀 ADMIN: Update a product
-export const updateProduct = async (req, res) => {
+export const updateOfferProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const { productName, categoryId, coinReward } = req.body;
 
-    const product = await Product.findById(id);
+    const product = await Offer.findById(id);
     if (!product) {
       return res
         .status(404)
@@ -323,10 +323,10 @@ export const updateProduct = async (req, res) => {
 };
 
 // 🚀 ADMIN: Delete a product
-export const deleteProduct = async (req, res) => {
+export const deleteOfferProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await Product.findByIdAndDelete(id);
+    const product = await Offer.findByIdAndDelete(id);
 
     if (!product) {
       return res
@@ -338,7 +338,7 @@ export const deleteProduct = async (req, res) => {
     const productImagePublicId = `kkd/products/${
       product.productImage.split("/").pop().split(".")[0]
     }`;
-    const qrImagePublicId = `kkd/qrcodes/${
+    const qrImagePublicId = `kkd/offerqrcodes/${
       product.qrCodeImage.split("/").pop().split(".")[0]
     }`;
 
@@ -358,10 +358,10 @@ export const deleteProduct = async (req, res) => {
 };
 
 // 🚀 ADMIN: Toggle product QR status
-export const toggleProductStatus = async (req, res) => {
+export const toggleOfferProductStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await Product.findById(id);
+    const product = await Offer.findById(id);
 
     if (!product) {
       return res
@@ -391,7 +391,7 @@ export const toggleProductStatus = async (req, res) => {
 };
 
 // 🚀 NEW: ADMIN: Test QR scanning (for admin testing purposes)
-export const testQRScan = async (req, res) => {
+export const testOfferQRScan = async (req, res) => {
   try {
     const { qrData, testUserId } = req.body;
     if (!qrData) {
@@ -429,7 +429,7 @@ export const testQRScan = async (req, res) => {
       });
     }
 
-    const product = await Product.findOne({ productId: parsedData.productId });
+    const product = await Offer.findOne({ productId: parsedData.productId });
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -520,7 +520,7 @@ export const testQRScan = async (req, res) => {
 };
 
 // 🚀 USER: Scan a product QR code
-export const scanProductQR = async (req, res) => {
+export const scanOfferProductQR = async (req, res) => {
   try {
     const { qrData } = req.body; // Changed from productId to qrData
     const userId = req.user.userId;
@@ -560,19 +560,9 @@ export const scanProductQR = async (req, res) => {
       });
     }
 
-    let product = await Product.findOne({
+    const product = await Offer.findOne({
       productId: parsedData.productId,
     }).populate("scannedBy", "fullName");
-
-    let isOfferProduct = false;
-
-    if (!product) {
-      product = await Offer.findOne({
-        productId: parsedData.productId,
-      }).populate("scannedBy", "fullName");
-      isOfferProduct = true;
-    }
-
     if (!product) {
       return res.status(404).json({
         success: false,

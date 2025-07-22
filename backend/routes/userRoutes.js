@@ -20,6 +20,7 @@ import {
 } from "../middlewares/uploads/documents.js";
 import { getAllPromotions } from "../controllers/promotionController.js";
 import { getFeaturedProducts, getUserProductById, getUserProducts, getUserProductsByCategory, scanProductQR } from "../controllers/productController.js";
+import { getUserOfferProducts } from "../controllers/offerController.js";
 
 const userRouter = express.Router();
 
@@ -32,6 +33,7 @@ userRouter.get("/get-user", authenticateToken, getUser);
 userRouter.get("/get-categories", authenticateToken, getAllCategories);
 userRouter.get("/get-promotions", authenticateToken, getAllPromotions);
 userRouter.get("/get-products", authenticateToken, getUserProducts);
+userRouter.get("/get-offer-products", authenticateToken, getUserOfferProducts);
 userRouter.get("/get-product/:productId", authenticateToken, getUserProductById);
 userRouter.get("/get-products-by-category/:categoryId", authenticateToken, getUserProductsByCategory);
 userRouter.get("/get-featured-products", authenticateToken, getFeaturedProducts);

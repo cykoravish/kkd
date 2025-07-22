@@ -20,7 +20,7 @@ const withdrawalRequestSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    processedAt: Date, // only if approved/rejected
+    processedAt: Date, 
   },
   { timestamps: true }
 );

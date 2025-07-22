@@ -511,9 +511,9 @@ export default function Home() {
             </div>
             <div className="space-y-3">
               {[
-                { text: "Products", link: "/products" },
                 { text: "Categories", link: "/category" },
                 { text: "Promotions", link: "/promotion" },
+                { text: "Offers", link: "/offers" },
               ].map((label, idx) => (
                 <Link
                   to={label.link}

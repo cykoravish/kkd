@@ -3,6 +3,7 @@ import Category from "../models/Category.js";
 import cloudinary from "../helpers/cloudinary/cloudinary.js";
 import User from "../models/User.js";
 import Product from "../models/Product.js";
+import WithdrawalRequest from "../models/WithdrawalRequest.js";
 
 export const login = (req, res) => {
   const { emailOrPhone, password } = req.body;
@@ -671,40 +672,42 @@ export const getTransactionHistory = async (req, res) => {
 // 🚀 NEW: Get Dashboard Statistics (Enhanced)
 export const getDashboardStats = async (req, res) => {
   try {
-    const [totalUsers, kycStats, scanStats, productStats] = await Promise.all([
-      User.countDocuments(),
-      User.aggregate([
-        {
-          $group: {
-            _id: "$kycStatus",
-            count: { $sum: 1 },
+    const [totalUsers, kycStats, scanStats, productStats, pendingWithdrawals] =
+      await Promise.all([
+        User.countDocuments(),
+        User.aggregate([
+          {
+            $group: {
+              _id: "$kycStatus",
+              count: { $sum: 1 },
+            },
           },
-        },
-      ]),
-      User.aggregate([
-        {
-          $project: {
-            scanCount: { $size: { $ifNull: ["$scanHistory", []] } },
-            totalCoins: "$coinsEarned",
+        ]),
+        User.aggregate([
+          {
+            $project: {
+              scanCount: { $size: { $ifNull: ["$scanHistory", []] } },
+              totalCoins: "$coinsEarned",
+            },
           },
-        },
-        {
-          $group: {
-            _id: null,
-            totalScans: { $sum: "$scanCount" },
-            totalCoinsDistributed: { $sum: "$totalCoins" },
+          {
+            $group: {
+              _id: null,
+              totalScans: { $sum: "$scanCount" },
+              totalCoinsDistributed: { $sum: "$totalCoins" },
+            },
           },
-        },
-      ]),
-      Product.aggregate([
-        {
-          $group: {
-            _id: "$qrStatus",
-            count: { $sum: 1 },
+        ]),
+        Product.aggregate([
+          {
+            $group: {
+              _id: "$qrStatus",
+              count: { $sum: 1 },
+            },
           },
-        },
-      ]),
-    ]);
+        ]),
+        WithdrawalRequest.countDocuments({ status: "pending" }),
+      ]);
 
     const formattedKycStats = {
       incomplete: 0,
@@ -733,7 +736,7 @@ export const getDashboardStats = async (req, res) => {
       totalScans: scanStats[0]?.totalScans || 0,
       totalCoinsDistributed: scanStats[0]?.totalCoinsDistributed || 0,
       productStats: formattedProductStats,
-      withdrawalRequests: 0, // TODO: Implement withdrawal system
+      withdrawalRequests: pendingWithdrawals || 0,
     };
 
     res.status(200).json({
@@ -749,3 +752,73 @@ export const getDashboardStats = async (req, res) => {
     });
   }
 };
+
+//withdrawal req api controllers
+
+// // GET all withdrawal requests (admin)
+export const getAllWithdrawalRequests = async (req, res) => {
+  try {
+    const requests = await WithdrawalRequest.find()
+      .sort({ createdAt: -1 })
+      .populate("user", "fullName phone profilePick");
+    res.status(200).json(requests);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching requests" });
+  }
+};
+
+export const updateWithdrawalRequestStatus = async (req, res) => {
+  try {
+    const { id } = req.params; // request ID
+    const { status } = req.body; // expected: "approved" or "rejected"
+
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const request = await WithdrawalRequest.findById(id).populate("user");
+
+    if (!request) {
+      return res.status(404).json({ message: "Withdrawal request not found" });
+    }
+
+    if (request.status !== "pending") {
+      return res
+        .status(400)
+        .json({ message: "This request has already been processed" });
+    }
+
+    // Update request status
+    request.status = status;
+    request.processedAt = new Date();
+    await request.save();
+
+    // If approved, deduct amount from user's coins
+    if (status === "approved") {
+      request.user.coinsEarned -= request.amount;
+      await request.user.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Withdrawal request ${status}`,
+      data: request,
+    });
+  } catch (err) {
+    console.error("Error updating withdrawal request status:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// // GET requests for a specific user
+// export const getUserWithdrawalRequests = async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+//     const requests = await WithdrawalRequest.find({ user: userId }).sort({
+//       createdAt: -1,
+//     });
+//     res.status(200).json(requests);
+//   } catch (err) {
+//     res.status(500).json({ message: "Error fetching user's requests" });
+//   }
+// };
