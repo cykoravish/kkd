@@ -21,6 +21,7 @@ import {
 import { getAllPromotions } from "../controllers/promotionController.js";
 import { getFeaturedProducts, getUserProductById, getUserProducts, getUserProductsByCategory, scanProductQR } from "../controllers/productController.js";
 import { getUserOfferProducts } from "../controllers/offerController.js";
+import uploadProfileAndPassbook from "../middlewares/uploads/passAndProfile.js";
 
 const userRouter = express.Router();
 
@@ -39,10 +40,19 @@ userRouter.get("/get-products-by-category/:categoryId", authenticateToken, getUs
 userRouter.get("/get-featured-products", authenticateToken, getFeaturedProducts);
 
 // Profile update routes
+// userRouter.put(
+//   "/update-profile",
+//   authenticateToken,
+//   uploadProfile.single("profilePick"),
+//   updateProfile
+// );
 userRouter.put(
   "/update-profile",
   authenticateToken,
-  uploadProfile.single("profilePick"),
+  uploadProfileAndPassbook.fields([
+    { name: "profilePick", maxCount: 1 },
+    { name: "passbookPhoto", maxCount: 1 },
+  ]),
   updateProfile
 );
 userRouter.put("/update-password", authenticateToken, updatePassword);

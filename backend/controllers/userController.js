@@ -160,7 +160,7 @@ export const updateProfile = async (req, res) => {
       // 🚀 Document photos (use dedicated endpoints)
       "panPhoto",
       "aadharPhoto",
-      "passbookPhoto",
+      // "passbookPhoto",
 
       // Document verification (admin only)
       "panVerificationStatus",
@@ -184,8 +184,8 @@ export const updateProfile = async (req, res) => {
       }
     });
 
-    if (req.file) {
-      updateData.profilePick = req.file.path;
+    if (req.files?.profilePick?.[0]) {
+      updateData.profilePick = req.files.profilePick[0].path;
     }
 
     if (updateData.pinCode && !/^\d{6}$/.test(updateData.pinCode)) {
@@ -236,6 +236,13 @@ export const updateProfile = async (req, res) => {
     Object.keys(updateData).forEach((key) => {
       user[key] = updateData[key];
     });
+
+    // ✅ Handle passbook photo if uploaded
+    if (req.files?.passbookPhoto?.[0]) {
+      user.passbookPhoto = req.files.passbookPhoto[0].path;
+      user.passbookVerificationStatus = "processing";
+      user.passbookRejectionReason = "";
+    }
 
     // 🚀 NEW: Check if profile is complete and create KYC request
     let kycRequestCreated = false;
@@ -524,12 +531,10 @@ export const createWithdrawalRequest = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.kycStatus !== "approved") {
-      return res
-        .status(400)
-        .json({
-          message:
-            "KYC must be approved before withdrawal. complete your profile first",
-        });
+      return res.status(400).json({
+        message:
+          "KYC must be approved before withdrawal. complete your profile first",
+      });
     }
 
     if (user.coinsEarned < amountNumber) {
