@@ -796,6 +796,13 @@ export const updateWithdrawalRequestStatus = async (req, res) => {
     // If approved, deduct amount from user's coins
     if (status === "approved") {
       request.user.coinsEarned -= request.amount;
+      // 👇 Add to user's withdrawal history
+      request.user.withdrawalHistory.push({
+        withdrawalId: request._id,
+        amount: request.amount,
+        status: "approved",
+        processedAt: new Date(),
+      });
       await request.user.save();
     }
 

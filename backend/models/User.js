@@ -70,6 +70,18 @@ const userSchema = new mongoose.Schema(
 
     // 🚀 NEW: Detailed scan history
     scanHistory: [scanHistorySchema],
+
+    withdrawalHistory: [
+      {
+        withdrawalId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "WithdrawalRequest",
+        },
+        amount: Number,
+        status: String, // approved / rejected / pending
+        processedAt: Date,
+      },
+    ],
   },
   { timestamps: true }
 );

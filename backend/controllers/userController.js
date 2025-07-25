@@ -179,6 +179,7 @@ export const updateProfile = async (req, res) => {
     ];
 
     restrictedFields.forEach((field) => {
+      console.log(updateData, field)
       if (updateData[field]) {
         delete updateData[field];
       }
