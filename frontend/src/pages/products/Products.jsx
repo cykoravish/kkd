@@ -211,7 +211,12 @@ export default function Products() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+         <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-700 font-semibold">Loading users...</p>
+            </div>
+          </div>
       </div>
     )
   }

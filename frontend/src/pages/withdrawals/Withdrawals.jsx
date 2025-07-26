@@ -26,7 +26,10 @@ export default function Withdrawals() {
       await api.patch(`/api/admin/withdrawals/${id}/status`, { status });
       fetchWithdrawalReq(); // refresh after update
     } catch (error) {
-      console.error("Error updating status:", error.response?.data?.message || error.message);
+      console.error(
+        "Error updating status:",
+        error.response?.data?.message || error.message
+      );
     }
   };
 
@@ -78,7 +81,12 @@ export default function Withdrawals() {
       {/* Requests */}
       <div>
         {loading ? (
-          <p className="text-center text-gray-600">Loading...</p>
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-700 font-semibold">Loading users...</p>
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredReqs.length === 0 ? (
@@ -121,13 +129,17 @@ export default function Withdrawals() {
                     <div className="flex flex-col gap-2">
                       <button
                         className="px-4 py-1 border border-gray-400 rounded-full text-gray-800 hover:bg-gray-100 transition"
-                        onClick={() => updateWithdrawalStatus(req._id, "rejected")}
+                        onClick={() =>
+                          updateWithdrawalStatus(req._id, "rejected")
+                        }
                       >
                         Reject
                       </button>
                       <button
                         className="px-4 py-1 bg-gray-900 text-white rounded-full hover:bg-black transition"
-                        onClick={() => updateWithdrawalStatus(req._id, "approved")}
+                        onClick={() =>
+                          updateWithdrawalStatus(req._id, "approved")
+                        }
                       >
                         Accept
                       </button>
