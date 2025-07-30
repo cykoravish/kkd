@@ -179,7 +179,7 @@ export const updateProfile = async (req, res) => {
     ];
 
     restrictedFields.forEach((field) => {
-      console.log(updateData, field)
+      console.log(updateData, field);
       if (updateData[field]) {
         delete updateData[field];
       }
@@ -457,11 +457,36 @@ export const uploadPassbookPhoto = async (req, res) => {
   console.log("uplaod passbook running");
   try {
     const userId = req.user.userId;
+    const { accountNumber, accountHolderName, bankName, ifscCode } = req.body;
+    const passbookPhoto = req.file;
+    const requiredFields = {
+      accountNumber,
+      accountHolderName,
+      bankName,
+      ifscCode,
+      passbookPhoto,
+    };
 
-    if (!req.file) {
+    for (const field in requiredFields) {
+      if (!requiredFields[field]) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} is required`,
+        });
+      }
+    }
+
+    if (ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
       return res.status(400).json({
         success: false,
-        message: "Passbook photo is required",
+        message: "Invalid IFSC code format",
+      });
+    }
+
+    if (accountNumber && accountNumber.length < 9) {
+      return res.status(400).json({
+        success: false,
+        message: "Account number must be at least 9 digits",
       });
     }
 
@@ -476,6 +501,10 @@ export const uploadPassbookPhoto = async (req, res) => {
     user.passbookPhoto = req.file.path;
     user.passbookVerificationStatus = "processing";
     user.passbookRejectionReason = "";
+    user.accountNumber=accountNumber;
+    user.accountHolderName=accountHolderName;
+    user.bankName=bankName;
+    user.ifscCode=ifscCode;
 
     let kycRequestCreated = false;
     if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
@@ -487,8 +516,8 @@ export const uploadPassbookPhoto = async (req, res) => {
     res.status(200).json({
       success: true,
       message: kycRequestCreated
-        ? "Passbook photo uploaded successfully. KYC verification request has been submitted."
-        : "Passbook photo uploaded successfully. Verification in progress.",
+        ? "Passbook photo and other details uploaded successfully. KYC verification request has been submitted."
+        : "Passbook photo and other details uploaded successfully. Verification in progress.",
       data: {
         passbookPhoto: user.passbookPhoto,
         passbookVerificationStatus: user.passbookVerificationStatus,

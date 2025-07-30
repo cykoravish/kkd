@@ -13,12 +13,17 @@ app.use(
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    optionsSuccessStatus: 204, 
+    optionsSuccessStatus: 204,
     maxAge: 600,
   })
 );
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  return res
+    .status(200)
+    .json({ success: true, message: "api is up and running" });
+});
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRouter);
 
