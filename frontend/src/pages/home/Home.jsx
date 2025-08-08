@@ -5,8 +5,9 @@ import { FaArrowRightLong } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import Header from "../../components/header/Header";
 import { IoMdClose } from "react-icons/io";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { api } from "../../helpers/api/api";
+import ProductAddButton from "../../components/productAddPopup/ProductAddButton";
 
 // Query keys - centralized for better cache management
 const QUERY_KEYS = {
@@ -367,6 +368,7 @@ export default function Home() {
             Explore All{" "}
             <FaArrowRightLong className="inline ml-2" strokeWidth={50} />
           </button>
+          <ProductAddButton />
         </div>
       </div>
 
@@ -525,6 +527,10 @@ export default function Home() {
                 { text: "Categories", link: "/category" },
                 { text: "Promotions", link: "/promotion" },
                 { text: "Offers", link: "/offers" },
+                { text: "All Users", link: "/users" },
+                { text: "All Products", link: "/products" },
+                { text: "KYC Requests", link: "/kyc-requests" },
+                { text: "Withdrawal Requests", link: "/withdrawal-requests" },
               ].map((label, idx) => (
                 <Link
                   to={label.link}

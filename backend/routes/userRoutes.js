@@ -9,6 +9,7 @@ import {
   uploadAadharPhoto,
   uploadPassbookPhoto,
   createWithdrawalRequest,
+  getPendingWithdrawals
 } from "../controllers/userController.js";
 import { authenticateToken } from "../middlewares/userAuthMiddleware.js";
 import { getAllCategories } from "../controllers/adminController.js";
@@ -38,6 +39,7 @@ userRouter.get("/get-offer-products", authenticateToken, getUserOfferProducts);
 userRouter.get("/get-product/:productId", authenticateToken, getUserProductById);
 userRouter.get("/get-products-by-category/:categoryId", authenticateToken, getUserProductsByCategory);
 userRouter.get("/get-featured-products", authenticateToken, getFeaturedProducts);
+userRouter.get("/get-pending-withdrawals", authenticateToken, getPendingWithdrawals)
 
 // Profile update routes
 // userRouter.put(

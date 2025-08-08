@@ -7,7 +7,6 @@ import WithdrawalRequest from "../models/WithdrawalRequest.js";
 
 export const login = (req, res) => {
   const { emailOrPhone, password } = req.body;
-
   const isEmailOrPhoneValid =
     emailOrPhone === process.env.ADMIN_EMAIL ||
     emailOrPhone === process.env.ADMIN_PHONE;

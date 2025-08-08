@@ -501,10 +501,10 @@ export const uploadPassbookPhoto = async (req, res) => {
     user.passbookPhoto = req.file.path;
     user.passbookVerificationStatus = "processing";
     user.passbookRejectionReason = "";
-    user.accountNumber=accountNumber;
-    user.accountHolderName=accountHolderName;
-    user.bankName=bankName;
-    user.ifscCode=ifscCode;
+    user.accountNumber = accountNumber;
+    user.accountHolderName = accountHolderName;
+    user.bankName = bankName;
+    user.ifscCode = ifscCode;
 
     let kycRequestCreated = false;
     if (user.checkProfileCompletion() && user.kycStatus === "incomplete") {
@@ -533,8 +533,6 @@ export const uploadPassbookPhoto = async (req, res) => {
     });
   }
 };
-
-//withdrawl req route controllers
 
 // CREATE a withdrawal request
 export const createWithdrawalRequest = async (req, res) => {
@@ -589,23 +587,25 @@ export const createWithdrawalRequest = async (req, res) => {
   }
 };
 
-// // GET all withdrawal requests (admin)
-// export const getAllWithdrawalRequests = async (req, res) => {
-//   try {
-//     const requests = await WithdrawalRequest.find().populate("user", "name email");
-//     res.status(200).json(requests);
-//   } catch (err) {
-//     res.status(500).json({ message: "Error fetching requests" });
-//   }
-// };
-
-// // GET requests for a specific user
-// export const getUserWithdrawalRequests = async (req, res) => {
-//   try {
-//     const { userId } = req.params;
-//     const requests = await WithdrawalRequest.find({ user: userId }).sort({ createdAt: -1 });
-//     res.status(200).json(requests);
-//   } catch (err) {
-//     res.status(500).json({ message: "Error fetching user's requests" });
-//   }
-// };
+export const getPendingWithdrawals = async (req, res) => {
+  try {
+    const user = await User.findOne({ userId: req.user.userId }).select("_id");
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+    const pendingWithdrawals = await WithdrawalRequest.find({
+      user: user._id,
+      status: "pending",
+    });
+    return res.status(200).json({
+      success: true,
+      message:"Pending withdrawal requests fetched successfully",
+      withdrawals: pendingWithdrawals,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
