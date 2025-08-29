@@ -9,7 +9,8 @@ import {
   uploadAadharPhoto,
   uploadPassbookPhoto,
   createWithdrawalRequest,
-  getPendingWithdrawals
+  getPendingWithdrawals,
+  deleteUserReq
 } from "../controllers/userController.js";
 import { authenticateToken } from "../middlewares/userAuthMiddleware.js";
 import { getAllCategories } from "../controllers/adminController.js";
@@ -83,5 +84,8 @@ userRouter.post("/create-withdrawal-req", authenticateToken, createWithdrawalReq
 
 // QR Scan Route
 userRouter.post("/scan-qr", authenticateToken, scanProductQR)
+
+//delete user
+userRouter.delete("/request-delete", authenticateToken, deleteUserReq)
 
 export default userRouter;

@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import adminRoutes from "./routes/adminRoutes.js";
 import userRouter from "./routes/userRoutes.js";
 import { dbConnect } from "./helpers/database/dbConenct.js";
+import "./cronJobs/accountCleanup.js";
 
 dotenv.config();
 const app = express();

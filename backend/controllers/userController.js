@@ -96,6 +96,13 @@ export const userLogin = async (req, res) => {
         .json({ success: false, message: "Invalid credentials" });
     }
 
+    // If user requested deletion, cancel it
+    if (user.isDeletionRequested) {
+      user.isDeletionRequested = false;
+      user.deletionDate = null;
+      await user.save();
+    }
+
     // Generate JWT token
     const token = jwt.sign({ userId: user.userId }, process.env.JWT_SECRET, {
       expiresIn: "365d",
@@ -601,11 +608,35 @@ export const getPendingWithdrawals = async (req, res) => {
     });
     return res.status(200).json({
       success: true,
-      message:"Pending withdrawal requests fetched successfully",
+      message: "Pending withdrawal requests fetched successfully",
       data: pendingWithdrawals,
     });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+//delete user request
+export const deleteUserReq = async (req, res) => {
+  try {
+    const user = await User.findOne({ userId: req.user.userId });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+    user.isDeletionRequested = true;
+    user.deletionDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // +7 days
+
+    await user.save();
+
+    res.json({
+      message:
+        "Your account will be deleted after 7 days unless you log in again.",
+    });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };

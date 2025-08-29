@@ -82,6 +82,9 @@ const userSchema = new mongoose.Schema(
         processedAt: Date,
       },
     ],
+    // deletion flow fields
+    isDeletionRequested: { type: Boolean, default: false },
+    deletionDate: { type: Date, default: null },
   },
   { timestamps: true }
 );
