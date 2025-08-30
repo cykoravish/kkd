@@ -620,7 +620,6 @@ export const getPendingWithdrawals = async (req, res) => {
 //delete user request
 export const deleteUserReq = async (req, res) => {
   try {
-    console.log("req.body: ",req.body)
     const { identifier, password } = req.body;
 
     if (!identifier || !password) {
@@ -663,6 +662,7 @@ export const deleteUserReq = async (req, res) => {
     await user.save();
 
     res.json({
+      success: true,
       message:
         "Your account will be deleted after 7 days unless you log in again.",
     });
