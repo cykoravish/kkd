@@ -620,12 +620,43 @@ export const getPendingWithdrawals = async (req, res) => {
 //delete user request
 export const deleteUserReq = async (req, res) => {
   try {
-    const user = await User.findOne({ userId: req.user.userId });
+    console.log("req.body: ",req.body)
+    const { identifier, password } = req.body;
+
+    if (!identifier || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email/Phone and password are required",
+      });
+    }
+
+    // Find user by email or phone
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { phone: identifier }],
+    });
+
     if (!user) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
     }
+
+    // Compare password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid credentials" });
+    }
+
+    if (user.isDeletionRequested) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "already requested to delete account. Login to Reactivate account before deletion",
+      });
+    }
+
     user.isDeletionRequested = true;
     user.deletionDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // +7 days
 

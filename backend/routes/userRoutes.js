@@ -86,6 +86,7 @@ userRouter.post("/create-withdrawal-req", authenticateToken, createWithdrawalReq
 userRouter.post("/scan-qr", authenticateToken, scanProductQR)
 
 //delete user
-userRouter.delete("/request-delete", authenticateToken, deleteUserReq)
+// userRouter.delete("/request-delete", authenticateToken, deleteUserReq)
+userRouter.delete("/request-delete", deleteUserReq)
 
 export default userRouter;

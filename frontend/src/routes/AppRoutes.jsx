@@ -13,6 +13,7 @@ import Products from "../pages/products/Products";
 import QRScanner from "../pages/qrTest/QRScanner";
 import Withdrawals from "../pages/withdrawals/Withdrawals";
 import TermsAndPrivacy from "../pages/TermsCondition/TermsAndCondition";
+import DeleteAccountForm from "../pages/deleteAccount/Delete";
 
 const AppRoutes = () => {
   return (
@@ -99,7 +100,8 @@ const AppRoutes = () => {
       />
       <Route path="/login" element={<Login />} />
       <Route path="*" element={<NotFound />} />
-      <Route path="terms-and-privacy" element={<TermsAndPrivacy />} />
+      <Route path="/terms-and-privacy" element={<TermsAndPrivacy />} />
+      <Route path="/delete-account" element={<DeleteAccountForm />} />
     </Routes>
   );
 };
