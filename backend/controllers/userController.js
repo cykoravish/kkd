@@ -617,7 +617,7 @@ export const getPendingWithdrawals = async (req, res) => {
   }
 };
 
-//delete user request
+//delete user web request
 export const deleteUserReq = async (req, res) => {
   try {
     const { identifier, password } = req.body;
@@ -661,7 +661,42 @@ export const deleteUserReq = async (req, res) => {
 
     await user.save();
 
-    res.json({
+    res.status(200).json({
+      success: true,
+      message:
+        "Your account will be deleted after 7 days unless you log in again.",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+//delete user app request
+export const deleteAppUserReq = async (req, res) => {
+  try {
+    const user = await User.findOne({ userId: req.user.userId });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    if (user.isDeletionRequested) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "already requested to delete account. Login to Reactivate account before deletion",
+      });
+    }
+
+    user.isDeletionRequested = true;
+    user.deletionDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // +7 days
+
+    await user.save();
+
+    res.status(200).json({
       success: true,
       message:
         "Your account will be deleted after 7 days unless you log in again.",
