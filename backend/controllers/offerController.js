@@ -221,7 +221,8 @@ export const getFeaturedOfferProducts = async (req, res) => {
 
 export const addOfferProduct = async (req, res) => {
   try {
-    const { productName, categoryId, coinReward } = req.body;
+    const { productName, categoryId, description, coinReward } = req.body;
+    console.log(description)
     if (!productName || !categoryId || !coinReward || !req.file) {
       return res.status(400).json({
         success: false,
@@ -252,6 +253,7 @@ export const addOfferProduct = async (req, res) => {
       productId,
       productName,
       category: categoryId,
+      description,
       coinReward,
       productImage: req.file.path,
       qrCodeImage,

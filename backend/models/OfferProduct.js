@@ -17,6 +17,9 @@ const offerProductSchema = new mongoose.Schema(
       ref: "Category",
       required: true,
     },
+    description: {
+      type: String,
+    },
     coinReward: {
       type: Number,
       required: true,

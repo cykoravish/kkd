@@ -117,6 +117,7 @@ export default function Offers() {
   const [formData, setFormData] = useState({
     productName: "",
     categoryId: "",
+    description:"",
     coinReward: "",
     productImage: null,
   })
@@ -178,7 +179,7 @@ export default function Offers() {
   }
 
   const resetForm = () => {
-    setFormData({ productName: "", categoryId: "", coinReward: "", productImage: null })
+    setFormData({ productName: "", categoryId: "",description:"", coinReward: "", productImage: null })
     setImagePreview(null)
     setEditingProduct(null)
   }
@@ -189,6 +190,7 @@ export default function Offers() {
       setFormData({
         productName: product.productName,
         categoryId: product.category._id,
+        description: product.description || "",
         coinReward: product.coinReward,
         productImage: null, // Not editing image by default
       })
@@ -219,6 +221,7 @@ export default function Offers() {
     setIsSubmitting(true)
     const payload = new FormData()
     payload.append("productName", formData.productName)
+    payload.append("description", formData.description || "")
     payload.append("categoryId", formData.categoryId)
     payload.append("coinReward", formData.coinReward)
     if (formData.productImage) {
@@ -488,6 +491,16 @@ export default function Offers() {
                   ))}
                 </select>
               </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    type="text"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"
+                  />
+                </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Product Image</label>
                 <div className="mt-1 flex items-center gap-4">
