@@ -60,7 +60,7 @@ export const getUserOfferProducts = async (req, res) => {
     const products = await Offer.find(filter)
       .populate("category", "categoryName categoryImage")
       .select(
-        "productId productName productDescription productImage category coinReward createdAt"
+        "productId productName description productImage category coinReward createdAt"
       )
       .sort({ createdAt: -1 })
       .skip(skip)

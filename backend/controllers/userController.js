@@ -576,6 +576,9 @@ export const createWithdrawalRequest = async (req, res) => {
       return res.status(400).json({ message: "Not enough coins to withdraw" });
     }
 
+
+    
+
     const newRequest = new WithdrawalRequest({
       user: user._id,
       amount: amountNumber,
