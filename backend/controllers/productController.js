@@ -237,12 +237,13 @@ export const addProduct = async (req, res) => {
     }
 
     const productId = `PROD_${generateProductId()}`;
+    const now = Date.now();
     const qrData = {
       productId,
       type: "PRODUCT_QR",
-      timestamp: Date.now(),
+      timestamp: now,
       // Add a simple hash for basic validation
-      hash: Buffer.from(`${productId}-${Date.now()}-KKD_SECRET`)
+      hash: Buffer.from(`${productId}-${now}-KKD_SECRET`)
         .toString("base64")
         .slice(0, 16),
     };
