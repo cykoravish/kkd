@@ -51,7 +51,7 @@ export const getUserProducts = async (req, res) => {
     if (search) {
       filter.$or = [
         { productName: { $regex: search, $options: "i" } },
-        { productDescription: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -60,7 +60,7 @@ export const getUserProducts = async (req, res) => {
     const products = await Product.find(filter)
       .populate("category", "categoryName categoryImage")
       .select(
-        "productId productName productDescription productImage category coinReward createdAt"
+        "productId productName description productImage category coinReward createdAt"
       )
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -109,7 +109,7 @@ export const getUserProductById = async (req, res) => {
     const userProduct = {
       productId: product.productId,
       productName: product.productName,
-      productDescription: product.productDescription,
+      description: product.description,
       productImage: product.productImage,
       category: product.category,
       coinReward: product.coinReward,
@@ -156,7 +156,7 @@ export const getUserProductsByCategory = async (req, res) => {
     const products = await Product.find(filter)
       .populate("category", "categoryName categoryImage")
       .select(
-        "productId productName productDescription productImage category coinReward createdAt"
+        "productId productName description productImage category coinReward createdAt"
       )
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -200,7 +200,7 @@ export const getFeaturedProducts = async (req, res) => {
     })
       .populate("category", "categoryName categoryImage")
       .select(
-        "productId productName productDescription productImage category coinReward createdAt"
+        "productId productName description productImage category coinReward createdAt"
       )
       .sort({ coinReward: -1, createdAt: -1 })
       .limit(Number.parseInt(limit));
@@ -221,7 +221,7 @@ export const getFeaturedProducts = async (req, res) => {
 
 export const addProduct = async (req, res) => {
   try {
-    const { productName, categoryId, coinReward } = req.body;
+    const { productName, categoryId, coinReward, description } = req.body;
     if (!productName || !categoryId || !coinReward || !req.file) {
       return res.status(400).json({
         success: false,
@@ -251,6 +251,7 @@ export const addProduct = async (req, res) => {
     const newProduct = new Product({
       productId,
       productName,
+      description: description || "",
       category: categoryId,
       coinReward,
       productImage: req.file.path,
