@@ -34,6 +34,9 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    encryptedCode:{
+      type:String,
+    },
     qrStatus: {
       type: String,
       enum: ["active", "scanned", "disabled"],

@@ -5,6 +5,7 @@ import cloudinary from "../helpers/cloudinary/cloudinary.js";
 import { customAlphabet } from "nanoid";
 import qrcode from "qrcode";
 import Offer from "../models/OfferProduct.js";
+import { decryptQRData, encryptQRData } from "../helpers/utils/qrCrypto.js";
 
 const generateProductId = customAlphabet(
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -242,12 +243,13 @@ export const addProduct = async (req, res) => {
       productId,
       type: "PRODUCT_QR",
       timestamp: now,
-      // Add a simple hash for basic validation
       hash: Buffer.from(`${productId}-${now}-KKD_SECRET`)
         .toString("base64")
         .slice(0, 16),
     };
     const qrCodeImage = await uploadQRToCloudinary(JSON.stringify(qrData));
+    // generate encrypted code
+    const encryptedCode = encryptQRData(qrData);
 
     const newProduct = new Product({
       productId,
@@ -257,6 +259,7 @@ export const addProduct = async (req, res) => {
       coinReward,
       productImage: req.file.path,
       qrCodeImage,
+      encryptedCode,
     });
 
     await newProduct.save();
@@ -265,6 +268,7 @@ export const addProduct = async (req, res) => {
       success: true,
       message: "Product added successfully with a unique QR code.",
       data: newProduct,
+      meta: { encryptedCode },
     });
   } catch (error) {
     console.error("Add Product Error:", error);
@@ -524,34 +528,47 @@ export const testQRScan = async (req, res) => {
 // 🚀 USER: Scan a product QR code
 export const scanProductQR = async (req, res) => {
   try {
-    const { qrData } = req.body; // Changed from productId to qrData
+    const { qrData, code } = req.body; // Changed from productId to qrData
     const userId = req.user.userId;
 
-    if (!qrData) {
+    if (!qrData && !code) {
       return res.status(400).json({
         success: false,
-        message: "QR data is required.",
+        message: "QR data or code is required.",
       });
     }
 
     // Parse QR data
-    let parsedData;
-    if (typeof qrData === "string") {
-      try {
-        parsedData = JSON.parse(qrData);
-      } catch (parseError) {
+    let parsedData = null;
+
+    if (code) {
+      // try to decrypt
+      parsedData = decryptQRData(code);
+      if (!parsedData) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or corrupted code.",
+        });
+      }
+    } else if (qrData) {
+      // old flow
+      if (typeof qrData === "string") {
+        try {
+          parsedData = JSON.parse(qrData);
+        } catch {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid QR code format.",
+          });
+        }
+      } else if (typeof qrData === "object" && qrData !== null) {
+        parsedData = qrData;
+      } else {
         return res.status(400).json({
           success: false,
           message: "Invalid QR code format.",
         });
       }
-    } else if (typeof qrData === "object" && qrData !== null) {
-      parsedData = qrData;
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid QR code format.",
-      });
     }
 
     // Validate QR structure
