@@ -34,7 +34,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    encryptedCode:{
+    qrCode:{
       type:String,
     },
     qrStatus: {

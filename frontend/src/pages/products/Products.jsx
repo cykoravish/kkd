@@ -514,7 +514,7 @@ export default function Products() {
                 {selectedProduct.category?.categoryName}
               </p>
               <p className="text-sm text-gray-500">
-                {selectedProduct?.encryptedCode}
+                {selectedProduct?.qrCode}
               </p>
               <div className="flex justify-center">
                 <img
